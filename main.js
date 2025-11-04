@@ -204,24 +204,18 @@ async function extractZip(zipPath, destPath) {
   });
 }
 
-// Modify unsteam.ini
+// Modify unsteam.ini - preserve original format and comments
 function modifyUnsteamIni(iniPath, exeName, appId) {
   try {
-    const config = ini.parse(fs.readFileSync(iniPath, 'utf-8'));
+    let content = fs.readFileSync(iniPath, 'utf-8');
 
-    // Modify exe_file in [loader] section
-    if (!config.loader) {
-      config.loader = {};
-    }
-    config.loader.exe_file = exeName;
+    // Replace exe_file in [loader] section
+    content = content.replace(/^exe_file=.*$/m, `exe_file=${exeName}`);
 
-    // Modify real_app_id in [game] section
-    if (!config.game) {
-      config.game = {};
-    }
-    config.game.real_app_id = appId;
+    // Replace real_app_id in [game] section
+    content = content.replace(/^real_app_id=.*$/m, `real_app_id=${appId}`);
 
-    fs.writeFileSync(iniPath, ini.stringify(config));
+    fs.writeFileSync(iniPath, content, 'utf-8');
     return true;
   } catch (error) {
     console.error('Error modifying INI:', error);
