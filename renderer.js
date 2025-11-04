@@ -50,7 +50,7 @@ async function handleInstall() {
     hideStatus();
 
     if (result.success) {
-      showSuccess(result.gameFolder, result.gameExe, appId);
+      showSuccess(result);
     } else {
       showError('Installation Failed', result.error);
     }
@@ -75,28 +75,49 @@ function hideStatus() {
   statusSection.classList.add('hidden');
 }
 
-function showSuccess(gameFolder, gameExe, appId) {
+function showSuccess(result) {
   resultSection.classList.remove('hidden', 'error');
   resultSection.classList.add('success');
   resultTitle.textContent = '✓ Installation Successful!';
 
+  let launchOptionsInfo = '';
+  if (result.launchOptionsSet) {
+    launchOptionsInfo = `
+      <li>Steam launch options have been updated automatically</li>
+      <li><strong>Close Steam completely and reopen it</strong> to apply the changes</li>
+    `;
+  } else {
+    launchOptionsInfo = `
+      <li style="color: #f57c00;"><strong>⚠️ Could not update Steam launch options automatically</strong></li>
+      <li>Please add the following launch option manually:
+        <div style="background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 4px; font-family: monospace; word-break: break-all; font-size: 0.9em;">
+          ${escapeHtml(result.launchOptionsPath)}
+        </div>
+        <strong>How to add manually:</strong>
+        <ol style="margin-left: 20px; margin-top: 5px;">
+          <li>Close Steam completely</li>
+          <li>Open Steam and go to your Library</li>
+          <li>Right-click the game → Properties</li>
+          <li>In the Launch Options field, paste the text above</li>
+          <li>Close the properties window</li>
+        </ol>
+      </li>
+    `;
+  }
+
   resultDetails.innerHTML = `
     <div class="result-details-item">
-      <strong>Game Folder:</strong> ${escapeHtml(gameFolder)}
+      <strong>Game Folder:</strong> ${escapeHtml(result.gameFolder)}
     </div>
     <div class="result-details-item">
-      <strong>Game Executable:</strong> ${escapeHtml(gameExe)}
-    </div>
-    <div class="result-details-item">
-      <strong>App ID:</strong> ${escapeHtml(appId)}
+      <strong>Game Executable:</strong> ${escapeHtml(result.gameExe)}
     </div>
     <div class="result-details-item" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ccc;">
       <strong>Next Steps:</strong>
       <ol style="margin-left: 20px; margin-top: 10px; line-height: 1.6;">
         <li>GlobalFix has been installed to your game folder</li>
         <li>The unsteam.ini file has been configured with your game settings</li>
-        <li>Steam launch options have been updated automatically</li>
-        <li>Restart Steam to apply the changes</li>
+        ${launchOptionsInfo}
         <li>Launch your game from Steam</li>
       </ol>
     </div>

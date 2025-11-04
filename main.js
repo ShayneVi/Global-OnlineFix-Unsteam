@@ -234,40 +234,56 @@ async function modifySteamLaunchOptions(appId, gamePath) {
     const userDataPath = path.join(steamPath, 'userdata');
     const users = fs.readdirSync(userDataPath);
 
+    let modified = false;
+
     for (const user of users) {
       const configPath = path.join(userDataPath, user, 'config', 'localconfig.vdf');
 
       if (fs.existsSync(configPath)) {
         let content = fs.readFileSync(configPath, 'utf-8');
 
-        // Find the app section
-        const appRegex = new RegExp(`"${appId}"\\s*{([^}]*)}`, 'gs');
-        const match = appRegex.exec(content);
+        // Escape backslashes for the launch options path
+        const launchOptions = `\\"${path.join(gamePath, 'unsteam_loader64.exe').replace(/\\/g, '\\\\')}\\" %command%`;
 
-        if (match) {
-          const launchOptions = `"${path.join(gamePath, 'unsteam_loader64.exe')}" %command%`;
+        // Check if app ID exists in this config
+        if (content.includes(`"${appId}"`)) {
+          // Find the app section - look for the pattern: "appid"\n\t\t\t{
+          const appSectionRegex = new RegExp(`("${appId}"\\s*\\n\\s*\\{)`, 'g');
 
-          // Check if LaunchOptions already exists
-          if (match[1].includes('LaunchOptions')) {
-            content = content.replace(
-              new RegExp(`("${appId}"\\s*{[^}]*"LaunchOptions"\\s+"[^"]*")`, 's'),
-              `$1\n\t\t\t\t"LaunchOptions"\t\t"${launchOptions}"`
+          if (appSectionRegex.test(content)) {
+            // Check if LaunchOptions already exists for this app
+            const launchOptionsPattern = new RegExp(
+              `"${appId}"\\s*\\n\\s*\\{[^}]*"LaunchOptions"\\s*"[^"]*"`,
+              's'
             );
-          } else {
-            // Add LaunchOptions
-            content = content.replace(
-              new RegExp(`("${appId}"\\s*{)`, 's'),
-              `$1\n\t\t\t\t"LaunchOptions"\t\t"${launchOptions}"`
-            );
+
+            if (launchOptionsPattern.test(content)) {
+              // Update existing LaunchOptions
+              content = content.replace(
+                new RegExp(`("${appId}"\\s*\\n\\s*\\{[^}]*"LaunchOptions"\\s*")([^"]*)(")`,'s'),
+                `$1${launchOptions}$3`
+              );
+            } else {
+              // Add new LaunchOptions after the opening brace of the app section
+              content = content.replace(
+                new RegExp(`("${appId}"\\s*\\n\\s*\\{)`,''),
+                `$1\n\t\t\t\t"LaunchOptions"\t\t"${launchOptions}"`
+              );
+            }
+
+            fs.writeFileSync(configPath, content, 'utf-8');
+            modified = true;
+            console.log(`Launch options set for AppID ${appId} in user ${user}`);
           }
-
-          fs.writeFileSync(configPath, content, 'utf-8');
-          return true;
         }
       }
     }
 
-    throw new Error('Could not find app configuration in Steam config files');
+    if (!modified) {
+      throw new Error(`Could not find app configuration for AppID ${appId} in Steam config files`);
+    }
+
+    return true;
   } catch (error) {
     console.error('Error modifying launch options:', error);
     return false;
@@ -314,7 +330,15 @@ ipcMain.handle('install-globalfix', async (event, appId) => {
     modifyUnsteamIni(iniPath, gameExe, appId);
 
     // Step 8: Modify Steam launch options
-    await modifySteamLaunchOptions(appId, gameFolder);
+    const launchOptionsPath = `"${path.join(gameFolder, 'unsteam_loader64.exe')}" %command%`;
+    let launchOptionsSuccess = false;
+    let launchOptionsError = null;
+
+    try {
+      launchOptionsSuccess = await modifySteamLaunchOptions(appId, gameFolder);
+    } catch (error) {
+      launchOptionsError = error.message;
+    }
 
     // Cleanup
     fs.unlinkSync(tempZipPath);
@@ -322,7 +346,10 @@ ipcMain.handle('install-globalfix', async (event, appId) => {
     return {
       success: true,
       gameFolder: gameFolder,
-      gameExe: gameExe
+      gameExe: gameExe,
+      launchOptionsSet: launchOptionsSuccess,
+      launchOptionsPath: launchOptionsPath,
+      launchOptionsError: launchOptionsError
     };
   } catch (error) {
     console.error('Installation error:', error);
