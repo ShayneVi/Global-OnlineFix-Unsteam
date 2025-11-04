@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
-const AdmZip = require('adm-zip');
+const extract = require('extract-zip');
 const ini = require('ini');
 const { exec } = require('child_process');
 const util = require('util');
@@ -186,9 +186,8 @@ async function downloadGlobalFix(destPath) {
 }
 
 // Extract zip to destination
-function extractZip(zipPath, destPath) {
-  const zip = new AdmZip(zipPath);
-  zip.extractAllTo(destPath, true);
+async function extractZip(zipPath, destPath) {
+  await extract(zipPath, { dir: destPath });
 }
 
 // Modify unsteam.ini
@@ -292,7 +291,7 @@ ipcMain.handle('install-globalfix', async (event, appId) => {
     await downloadGlobalFix(tempZipPath);
 
     // Step 6: Extract to game folder
-    extractZip(tempZipPath, gameFolder);
+    await extractZip(tempZipPath, gameFolder);
 
     // Step 7: Modify unsteam.ini
     const iniPath = path.join(gameFolder, 'unsteam.ini');

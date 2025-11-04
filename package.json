@@ -15,7 +15,7 @@
     "electron-builder": "^24.9.1"
   },
   "dependencies": {
-    "adm-zip": "^0.5.10",
+    "extract-zip": "^2.0.1",
     "ini": "^4.1.1"
   },
   "build": {

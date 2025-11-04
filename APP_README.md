@@ -133,7 +133,7 @@ Global-OnlineFix-Unsteam/
 ## Dependencies
 
 - **electron:** Cross-platform desktop app framework
-- **adm-zip:** ZIP file extraction
+- **extract-zip:** Robust ZIP file extraction supporting multiple compression methods
 - **ini:** INI file parsing and modification
 
 ## Security Note
