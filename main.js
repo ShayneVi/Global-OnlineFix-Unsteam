@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
-const Seven = require('node-7z');
+const { extractFull } = require('node-7z');
 const sevenBin = require('7zip-bin');
 const ini = require('ini');
 const { exec } = require('child_process');
@@ -189,7 +189,7 @@ async function downloadGlobalFix(destPath) {
 // Extract zip to destination using 7-Zip (supports LZMA and other compression methods)
 async function extractZip(zipPath, destPath) {
   const pathTo7zip = sevenBin.path7za;
-  const seven = new Seven.extractFull(zipPath, destPath, {
+  const seven = extractFull(zipPath, destPath, {
     $bin: pathTo7zip,
     recursive: true
   });
