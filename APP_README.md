@@ -4,12 +4,14 @@ An automated installer application for GlobalFix Steam game modifications. This 
 
 ## Features
 
+- 🔎 **Steam Game Search** - Search for games by name with autocomplete dropdown
 - 🔍 Automatically finds your Steam installation and game libraries
-- 🎮 Locates games by Steam App ID
+- 🎮 Locates games by Steam App ID (or search by name!)
 - 📦 Downloads and extracts GlobalFix from the repository
 - ⚙️ Auto-configures unsteam.ini with the correct game executable and App ID
 - 🚀 Automatically updates Steam launch options
 - 💻 Clean, user-friendly interface
+- ⚡ Debounced search (no lag or freezing)
 
 ## Prerequisites
 
@@ -39,25 +41,35 @@ npm start
 ```
 
 ### Building for Distribution
+
+Want to share this app with friends? See **[BUILD.md](BUILD.md)** for complete build instructions.
+
+Quick build:
 ```bash
 npm run build
 ```
 
-The built application will be in the `dist` folder.
+This creates both an installer and portable version in the `dist` folder. No dev console will appear in built versions!
 
 ## How to Use
 
-1. **Launch the app** using `npm start`
+1. **Launch the app** using `npm start` (or run the built executable)
 
-2. **Find your Steam App ID:**
-   - Open Steam and navigate to the game's store page
+2. **Find your game** - Two options:
+
+   **Option A: Search by name (Easiest!)**
+   - Type your game's name in the search box
+   - Wait for results to appear (autocomplete)
+   - Click your game from the dropdown
+   - App ID is filled automatically!
+
+   **Option B: Manual App ID entry**
+   - Find your game on Steam's store page
    - Look at the URL: `store.steampowered.com/app/APPID/GameName`
-   - Copy the numeric App ID
+   - Copy the numeric App ID and paste it
    - Example: Paint the Town Red = `337320`
 
-3. **Enter the App ID** in the application
-
-4. **Click "Install GlobalFix"**
+3. **Click "Install GlobalFix"**
 
 5. **Wait for completion** - The app will:
    - Locate your game installation

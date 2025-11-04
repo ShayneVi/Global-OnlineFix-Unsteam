@@ -26,8 +26,10 @@ function createWindow() {
 
   mainWindow.loadFile('index.html');
 
-  // Uncomment for debugging
-  // mainWindow.webContents.openDevTools();
+  // Only open DevTools in development mode
+  if (process.env.NODE_ENV === 'development') {
+    // mainWindow.webContents.openDevTools();
+  }
 }
 
 app.whenReady().then(createWindow);
