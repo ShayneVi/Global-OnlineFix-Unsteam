@@ -21,7 +21,8 @@ function createWindow() {
       contextIsolation: true
     },
     autoHideMenuBar: true,
-    resizable: false
+    resizable: false,
+    icon: path.join(__dirname, '4310811.png')
   });
 
   mainWindow.loadFile('index.html');

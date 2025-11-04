@@ -34,6 +34,7 @@
       "renderer.js",
       "index.html",
       "styles.css",
+      "4310811.png",
       "package.json",
       "node_modules/**/*"
     ],
@@ -48,6 +49,7 @@
           "arch": ["x64"]
         }
       ],
+      "icon": "4310811.png",
       "artifactName": "${productName}-${version}-${arch}.${ext}",
       "publisherName": "GlobalFix",
       "verifyUpdateCodeSignature": false
