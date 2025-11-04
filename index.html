@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>GlobalFix Installer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>GlobalFix Installer</h1>
+      <p class="subtitle">Automated Steam Game Modification Tool</p>
+    </header>
+
+    <main>
+      <div class="input-section">
+        <label for="appId">Steam App ID:</label>
+        <input
+          type="text"
+          id="appId"
+          placeholder="e.g., 337320 for Paint the Town Red"
+          autocomplete="off"
+        >
+        <button id="installBtn" class="btn-primary">Install GlobalFix</button>
+      </div>
+
+      <div id="status" class="status-section hidden">
+        <div class="status-content">
+          <div class="spinner hidden" id="spinner"></div>
+          <p id="statusText"></p>
+        </div>
+      </div>
+
+      <div id="result" class="result-section hidden">
+        <h3 id="resultTitle"></h3>
+        <div id="resultDetails"></div>
+      </div>
+
+      <div class="info-section">
+        <h3>How to find your Steam App ID:</h3>
+        <ol>
+          <li>Open Steam and go to your game's store page</li>
+          <li>Look at the URL: <code>store.steampowered.com/app/<strong>APPID</strong>/GameName</code></li>
+          <li>Copy the number and paste it above</li>
+        </ol>
+        <p class="note">
+          <strong>Example:</strong> Paint the Town Red = 337320
+        </p>
+      </div>
+    </main>
+
+    <footer>
+      <p class="warning">⚠️ Use this tool only for games you own. Always backup your game files first.</p>
+    </footer>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "name": "global-onlinefix-installer",
+  "version": "1.0.0",
+  "description": "Automated installer for GlobalFix Steam game modifications",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "keywords": ["electron", "steam", "game", "installer"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.10",
+    "ini": "^4.1.1"
+  },
+  "build": {
+    "appId": "com.globalfix.installer",
+    "productName": "GlobalFix Installer",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    }
+  }
+}
