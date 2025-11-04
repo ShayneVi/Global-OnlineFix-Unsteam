@@ -234,7 +234,7 @@ async function modifySteamLaunchOptions(appId, gamePath) {
         const match = appRegex.exec(content);
 
         if (match) {
-          const launchOptions = `"${path.join(gamePath, 'unsteam_loader64')}" %command%`;
+          const launchOptions = `"${path.join(gamePath, 'unsteam_loader64.exe')}" %command%`;
 
           // Check if LaunchOptions already exists
           if (match[1].includes('LaunchOptions')) {
