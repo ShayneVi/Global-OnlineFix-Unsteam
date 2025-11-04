@@ -133,7 +133,8 @@ Global-OnlineFix-Unsteam/
 ## Dependencies
 
 - **electron:** Cross-platform desktop app framework
-- **extract-zip:** Robust ZIP file extraction supporting multiple compression methods
+- **7zip-bin:** Bundled 7-Zip executable for all platforms
+- **node-7z:** Node.js wrapper for 7-Zip (supports LZMA, DEFLATE, and all compression methods)
 - **ini:** INI file parsing and modification
 
 ## Security Note

@@ -15,7 +15,8 @@
     "electron-builder": "^24.9.1"
   },
   "dependencies": {
-    "extract-zip": "^2.0.1",
+    "7zip-bin": "^5.2.0",
+    "node-7z": "^3.0.0",
     "ini": "^4.1.1"
   },
   "build": {

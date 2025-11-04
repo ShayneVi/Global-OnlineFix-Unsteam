@@ -2,7 +2,8 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
-const extract = require('extract-zip');
+const Seven = require('node-7z');
+const sevenBin = require('7zip-bin');
 const ini = require('ini');
 const { exec } = require('child_process');
 const util = require('util');
@@ -185,9 +186,22 @@ async function downloadGlobalFix(destPath) {
   });
 }
 
-// Extract zip to destination
+// Extract zip to destination using 7-Zip (supports LZMA and other compression methods)
 async function extractZip(zipPath, destPath) {
-  await extract(zipPath, { dir: destPath });
+  const pathTo7zip = sevenBin.path7za;
+  const seven = new Seven.extractFull(zipPath, destPath, {
+    $bin: pathTo7zip,
+    recursive: true
+  });
+
+  return new Promise((resolve, reject) => {
+    seven.on('end', () => {
+      resolve();
+    });
+    seven.on('error', (err) => {
+      reject(err);
+    });
+  });
 }
 
 // Modify unsteam.ini
