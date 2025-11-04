@@ -290,6 +290,49 @@ async function modifySteamLaunchOptions(appId, gamePath) {
   }
 }
 
+// Fetch Steam app list
+let steamAppListCache = null;
+
+ipcMain.handle('fetch-steam-apps', async () => {
+  // Return cached list if available
+  if (steamAppListCache) {
+    return { success: true, apps: steamAppListCache };
+  }
+
+  return new Promise((resolve) => {
+    const url = 'https://api.steampowered.com/ISteamApps/GetAppList/v2/';
+
+    https.get(url, (response) => {
+      let data = '';
+
+      response.on('data', (chunk) => {
+        data += chunk;
+      });
+
+      response.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.applist && parsed.applist.apps) {
+            // Filter out entries with empty names and sort by name
+            const apps = parsed.applist.apps
+              .filter(app => app.name && app.name.trim() !== '')
+              .sort((a, b) => a.name.localeCompare(b.name));
+
+            steamAppListCache = apps;
+            resolve({ success: true, apps: apps });
+          } else {
+            resolve({ success: false, error: 'Invalid response format' });
+          }
+        } catch (error) {
+          resolve({ success: false, error: 'Failed to parse Steam app list' });
+        }
+      });
+    }).on('error', (error) => {
+      resolve({ success: false, error: error.message });
+    });
+  });
+});
+
 // Main IPC handler
 ipcMain.handle('install-globalfix', async (event, appId) => {
   try {

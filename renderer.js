@@ -1,4 +1,6 @@
 // Get DOM elements
+const gameSearchInput = document.getElementById('gameSearch');
+const searchDropdown = document.getElementById('searchDropdown');
 const appIdInput = document.getElementById('appId');
 const installBtn = document.getElementById('installBtn');
 const statusSection = document.getElementById('status');
@@ -7,6 +9,98 @@ const spinner = document.getElementById('spinner');
 const resultSection = document.getElementById('result');
 const resultTitle = document.getElementById('resultTitle');
 const resultDetails = document.getElementById('resultDetails');
+
+// Steam apps list
+let steamApps = [];
+let searchTimeout = null;
+
+// Fetch Steam app list on load
+async function loadSteamApps() {
+  try {
+    const result = await window.electronAPI.fetchSteamApps();
+    if (result.success) {
+      steamApps = result.apps;
+      console.log(`Loaded ${steamApps.length} Steam games`);
+    } else {
+      console.error('Failed to load Steam apps:', result.error);
+    }
+  } catch (error) {
+    console.error('Error loading Steam apps:', error);
+  }
+}
+
+// Debounced search function
+function handleGameSearch() {
+  const query = gameSearchInput.value.trim().toLowerCase();
+
+  // Clear existing timeout
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+
+  // If search is empty, hide dropdown
+  if (query === '') {
+    searchDropdown.classList.add('hidden');
+    return;
+  }
+
+  // Show loading state
+  searchDropdown.classList.remove('hidden');
+  searchDropdown.innerHTML = '<div class="search-dropdown-loading">Searching...</div>';
+
+  // Debounce search by 500ms
+  searchTimeout = setTimeout(() => {
+    performSearch(query);
+  }, 500);
+}
+
+// Perform the actual search
+function performSearch(query) {
+  // Filter games by name (case insensitive)
+  const results = steamApps.filter(app =>
+    app.name.toLowerCase().includes(query)
+  ).slice(0, 50); // Limit to 50 results
+
+  // Display results
+  if (results.length === 0) {
+    searchDropdown.innerHTML = '<div class="search-dropdown-empty">No games found</div>';
+  } else {
+    searchDropdown.innerHTML = results.map(app => `
+      <div class="search-dropdown-item" data-appid="${app.appid}" data-name="${escapeHtml(app.name)}">
+        <div class="search-dropdown-item-name">${escapeHtml(app.name)}</div>
+        <div class="search-dropdown-item-appid">App ID: ${app.appid}</div>
+      </div>
+    `).join('');
+
+    // Add click handlers to dropdown items
+    const items = searchDropdown.querySelectorAll('.search-dropdown-item');
+    items.forEach(item => {
+      item.addEventListener('click', () => {
+        const appId = item.getAttribute('data-appid');
+        const gameName = item.getAttribute('data-name');
+        selectGame(appId, gameName);
+      });
+    });
+  }
+}
+
+// Handle game selection
+function selectGame(appId, gameName) {
+  appIdInput.value = appId;
+  gameSearchInput.value = gameName;
+  searchDropdown.classList.add('hidden');
+  installBtn.disabled = false;
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  if (!gameSearchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
+    searchDropdown.classList.add('hidden');
+  }
+});
+
+// Game search input event listener
+gameSearchInput.addEventListener('input', handleGameSearch);
 
 // Enable install button when AppID is entered
 appIdInput.addEventListener('input', () => {
@@ -139,3 +233,4 @@ function escapeHtml(text) {
 
 // Initialize
 installBtn.disabled = true;
+loadSteamApps();

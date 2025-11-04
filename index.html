@@ -16,11 +16,22 @@
 
     <main>
       <div class="input-section">
-        <label for="appId">Steam App ID:</label>
+        <label for="gameSearch">Search for your game:</label>
+        <div class="search-container">
+          <input
+            type="text"
+            id="gameSearch"
+            placeholder="Type game name (e.g., Paint the Town Red)..."
+            autocomplete="off"
+          >
+          <div id="searchDropdown" class="search-dropdown hidden"></div>
+        </div>
+
+        <label for="appId" style="margin-top: 15px;">Or enter Steam App ID directly:</label>
         <input
           type="text"
           id="appId"
-          placeholder="e.g., 337320 for Paint the Town Red"
+          placeholder="e.g., 337320"
           autocomplete="off"
         >
         <button id="installBtn" class="btn-primary">Install GlobalFix</button>
@@ -39,14 +50,14 @@
       </div>
 
       <div class="info-section">
-        <h3>How to find your Steam App ID:</h3>
+        <h3>How to use:</h3>
         <ol>
-          <li>Open Steam and go to your game's store page</li>
-          <li>Look at the URL: <code>store.steampowered.com/app/<strong>APPID</strong>/GameName</code></li>
-          <li>Copy the number and paste it above</li>
+          <li><strong>Search by name:</strong> Start typing your game's name in the search box above</li>
+          <li><strong>Or enter App ID:</strong> Find it on Steam's store page URL: <code>store.steampowered.com/app/<strong>APPID</strong>/GameName</code></li>
+          <li>Click "Install GlobalFix" to begin installation</li>
         </ol>
         <p class="note">
-          <strong>Example:</strong> Paint the Town Red = 337320
+          <strong>Tip:</strong> The search feature makes it easy to find your game without looking up the App ID!
         </p>
       </div>
     </main>
