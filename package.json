@@ -28,6 +28,9 @@
       "output": "dist",
       "buildResources": "build"
     },
+    "asarUnpack": [
+      "node_modules/7zip-bin/**/*"
+    ],
     "files": [
       "main.js",
       "preload.js",
