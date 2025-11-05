@@ -390,23 +390,28 @@ ipcMain.handle('install-globalfix', async (event, appId) => {
     let dllPathForIni;
 
     if (exeInSubfolder) {
-      // Exe is in a subfolder - move ini to root and use full paths
+      // Exe is in a subfolder - need ini in BOTH locations with full paths
       const extractedIniPath = path.join(gameExeDir, 'unsteam.ini');
-      finalIniPath = path.join(gameFolder, 'unsteam.ini');
+      const rootIniPath = path.join(gameFolder, 'unsteam.ini');
 
-      // Move unsteam.ini from exe directory to game root
-      if (fs.existsSync(extractedIniPath)) {
-        fs.copyFileSync(extractedIniPath, finalIniPath);
-        fs.unlinkSync(extractedIniPath); // Remove from exe directory
-      } else {
+      if (!fs.existsSync(extractedIniPath)) {
         return { success: false, error: 'unsteam.ini not found after extraction' };
       }
+
+      // Copy unsteam.ini to game root (keep original in exe folder too)
+      fs.copyFileSync(extractedIniPath, rootIniPath);
 
       // Use full paths for exe and dll
       exePathForIni = gameExeFullPath;
       dllPathForIni = path.join(gameExeDir, 'unsteam64.dll');
+
+      // Modify BOTH copies of unsteam.ini with full paths
+      modifyUnsteamIni(extractedIniPath, exePathForIni, dllPathForIni, appId); // In exe folder
+      modifyUnsteamIni(rootIniPath, exePathForIni, dllPathForIni, appId);      // In root folder
+
+      finalIniPath = rootIniPath; // For logging purposes
     } else {
-      // Exe is in root - leave ini in place and use filenames only
+      // Exe is in root - only one ini needed, use filenames only
       finalIniPath = path.join(gameExeDir, 'unsteam.ini');
 
       if (!fs.existsSync(finalIniPath)) {
@@ -416,10 +421,10 @@ ipcMain.handle('install-globalfix', async (event, appId) => {
       // Use just filenames
       exePathForIni = gameExeName;
       dllPathForIni = 'unsteam64.dll';
-    }
 
-    // Modify unsteam.ini with appropriate paths
-    modifyUnsteamIni(finalIniPath, exePathForIni, dllPathForIni, appId);
+      // Modify the single unsteam.ini
+      modifyUnsteamIni(finalIniPath, exePathForIni, dllPathForIni, appId);
+    }
 
     // Step 8: Modify Steam launch options
     // Launch options point to unsteam_loader64.exe which is always in the same folder as game exe
