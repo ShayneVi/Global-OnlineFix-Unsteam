@@ -426,17 +426,22 @@ ipcMain.handle('install-globalfix', async (event, appId) => {
       modifyUnsteamIni(finalIniPath, exePathForIni, dllPathForIni, appId);
     }
 
-    // Step 8: Modify Steam launch options
-    // Launch options point to unsteam_loader64.exe which is always in the same folder as game exe
-    const launchOptionsPath = `"${path.join(gameExeDir, 'unsteam_loader64.exe')}" %command%`;
+    // Step 8: Copy winmm.dll to necessary locations
+    // winmm.dll is the DLL hijacking file that loads the fix
+    const winmmSourcePath = path.join(gameExeDir, 'winmm.dll');
 
-    let launchOptionsSuccess = false;
-    let launchOptionsError = null;
-
-    try {
-      launchOptionsSuccess = await modifySteamLaunchOptions(appId, gameExeDir);
-    } catch (error) {
-      launchOptionsError = error.message;
+    if (!fs.existsSync(winmmSourcePath)) {
+      console.warn('winmm.dll not found in extracted files - this may be expected for older GlobalFix versions');
+    } else {
+      // Always copy winmm.dll to exe directory (it's already there from extraction)
+      // If exe is in subfolder, also copy to root
+      if (exeInSubfolder) {
+        const rootWinmmPath = path.join(gameFolder, 'winmm.dll');
+        fs.copyFileSync(winmmSourcePath, rootWinmmPath);
+        console.log('Copied winmm.dll to both exe folder and root folder');
+      } else {
+        console.log('winmm.dll placed in root folder (same as exe location)');
+      }
     }
 
     // Cleanup
@@ -446,9 +451,9 @@ ipcMain.handle('install-globalfix', async (event, appId) => {
       success: true,
       gameFolder: gameExeDir,
       gameExe: gameExeName,
-      launchOptionsSet: launchOptionsSuccess,
-      launchOptionsPath: launchOptionsPath,
-      launchOptionsError: launchOptionsError
+      launchOptionsSet: null, // No longer needed
+      launchOptionsPath: null,
+      launchOptionsError: null
     };
   } catch (error) {
     console.error('Installation error:', error);

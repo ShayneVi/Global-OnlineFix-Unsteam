@@ -9,7 +9,7 @@ An automated installer application for GlobalFix Steam game modifications. This 
 - 🎮 Locates games by Steam App ID (or search by name!)
 - 📦 Downloads and extracts GlobalFix from the repository
 - ⚙️ Auto-configures unsteam.ini with the correct game executable and App ID
-- 🚀 Automatically updates Steam launch options
+- 🚀 Automatically places winmm.dll loader in necessary locations
 - 💻 Clean, user-friendly interface
 - ⚡ Debounced search (no lag or freezing)
 
@@ -77,11 +77,9 @@ This creates both an installer and portable version in the `dist` folder. No dev
    - Download GlobalFix.zip
    - Extract it to the game folder
    - Configure unsteam.ini
-   - Update Steam launch options
+   - Place winmm.dll loader in necessary locations
 
-6. **Restart Steam** to apply the changes
-
-7. **Launch your game** from Steam as usual
+6. **Launch your game** from Steam as usual - No restart needed!
 
 ## What the App Does
 
@@ -98,10 +96,10 @@ This creates both an installer and portable version in the `dist` folder. No dev
    exe_file=YourGameExecutable.exe
    real_app_id=YourAppID
    ```
-8. **Launch Options:** Updates Steam config with:
-   ```
-   "C:\Path\To\Game\unsteam_loader64" %command%
-   ```
+8. **DLL Loader:** Places `winmm.dll` in the necessary locations:
+   - Always in the folder with the game executable
+   - Also in the game root folder if the executable is in a subfolder
+   - This allows automatic loading when the game launches
 
 ## Troubleshooting
 
@@ -119,14 +117,10 @@ This creates both an installer and portable version in the `dist` folder. No dev
 - Check if the game has multiple executables
 - You may need to manually verify the installation
 
-### "Launch options could not be updated"
-- Make sure Steam is closed when running the installer
-- Check that you have write permissions to Steam's config files
-- You can manually add the launch options in Steam:
-  Right-click game → Properties → Launch Options:
-  ```
-  "C:\Full\Path\To\Game\unsteam_loader64" %command%
-  ```
+### "winmm.dll not found in extracted files"
+- Ensure you have the latest GlobalFix.zip from the repository
+- The zip file should include the winmm.dll loader
+- Try re-downloading the repository
 
 ## File Structure
 
