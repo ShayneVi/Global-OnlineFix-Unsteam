@@ -38,6 +38,7 @@
       "index.html",
       "styles.css",
       "4310811.png",
+      "goldberg_dlls/**/*",
       "package.json",
       "node_modules/**/*"
     ],
@@ -55,7 +56,8 @@
       "icon": "4310811.png",
       "artifactName": "${productName}-${version}-${arch}.${ext}",
       "publisherName": "GlobalFix",
-      "verifyUpdateCodeSignature": false
+      "verifyUpdateCodeSignature": false,
+      "sign": null
     },
     "nsis": {
       "oneClick": false,

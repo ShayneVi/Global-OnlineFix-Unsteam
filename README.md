@@ -1,7 +1,6 @@
 # GlobalFix Installer
 
 **A powerful automated installer for enabling online multiplayer and unlocking features in Steam games.**
-**All credits for Unsteam goes to cs rin ru user Emberantz**
 
 GlobalFix is an Electron-based application that streamlines the installation and configuration of online multiplayer fixes for Steam games. It enables peer-to-peer online gameplay for games that lack dedicated servers, unlocks online features in single-player titles, and can resolve compatibility issues by bypassing Steam DRM.
 
@@ -68,8 +67,6 @@ The following games have been successfully tested with GlobalFix and confirmed t
 - **Europa Universalis IV**
 - **Veins**
 - **Tavern Keeper**
-- **Shape Of Dreams**
-- **The Headliners**
 
 ### ❌ Not Compatible
 
@@ -86,10 +83,6 @@ These games have been tested and are **not compatible** with GlobalFix due to th
 - **Warhammer: Rogue Trader** - Photon networking
 - **Abiotic Factor** - LAN works, but not standard online multiplayer
 - **Phasmophobia** - Photon networking
-- **Mortal Kombat X** - freezes before main menu
-- **Lego 2k Drive** - Crashes automatically and opens web page for launch errors.
-- **Wayfinder** - Has EasyAntiCheat
-- **Mortal Kombat legacy collection** - (their own servers)
 
 **Note**: This list is not exhaustive. Many other games will work or not work based on similar technical factors.
 
@@ -228,5 +221,4 @@ MIT License - See repository for details
 ---
 
 **Version**: 1.0.0
-
 **Last Updated**: November 2024
