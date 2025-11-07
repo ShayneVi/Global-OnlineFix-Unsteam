@@ -45,134 +45,17 @@
 
           <div id="goldbergOptions" class="goldberg-options hidden">
             <div class="goldberg-info">
-              <p>Goldberg enables VLAN multiplayer (via Hamachi/ZeroTier), offline play, and achievement tracking. Configure your settings below:</p>
+              <p>Goldberg enables VLAN multiplayer (via Hamachi/ZeroTier), offline play, and achievement tracking.</p>
             </div>
 
-            <!-- Game Info Section -->
-            <div class="goldberg-section">
-              <h4>Game Info</h4>
-
-              <label for="steamApiKey">Steam Web API Key: <span class="required">*</span></label>
-              <input
-                type="text"
-                id="steamApiKey"
-                placeholder="Get from https://steamcommunity.com/dev/apikey"
-                autocomplete="off"
-              >
-              <small class="input-help">Required to download achievements and game data</small>
-
-              <div class="checkbox-container">
-                <input type="checkbox" id="generateAchievementImages" checked>
-                <label for="generateAchievementImages" class="checkbox-label">
-                  Generate Achievement Images
-                </label>
-              </div>
-            </div>
-
-            <!-- Configuration Section -->
-            <div class="goldberg-section">
-              <h4>Configuration</h4>
-
-              <label for="language">Language:</label>
-              <select id="language">
-                <option value="english">English</option>
-                <option value="arabic">Arabic</option>
-                <option value="brazilian">Brazilian Portuguese</option>
-                <option value="bulgarian">Bulgarian</option>
-                <option value="schinese">Chinese (Simplified)</option>
-                <option value="tchinese">Chinese (Traditional)</option>
-                <option value="czech">Czech</option>
-                <option value="danish">Danish</option>
-                <option value="dutch">Dutch</option>
-                <option value="finnish">Finnish</option>
-                <option value="french">French</option>
-                <option value="german">German</option>
-                <option value="greek">Greek</option>
-                <option value="hungarian">Hungarian</option>
-                <option value="italian">Italian</option>
-                <option value="japanese">Japanese</option>
-                <option value="koreana">Korean</option>
-                <option value="norwegian">Norwegian</option>
-                <option value="polish">Polish</option>
-                <option value="portuguese">Portuguese</option>
-                <option value="romanian">Romanian</option>
-                <option value="russian">Russian</option>
-                <option value="spanish">Spanish</option>
-                <option value="latam">Spanish (Latin America)</option>
-                <option value="swedish">Swedish</option>
-                <option value="thai">Thai</option>
-                <option value="turkish">Turkish</option>
-                <option value="ukrainian">Ukrainian</option>
-                <option value="vietnamese">Vietnamese</option>
-              </select>
-
-              <label for="listenPort">Listen Port:</label>
-              <input
-                type="number"
-                id="listenPort"
-                value="47584"
-                min="1024"
-                max="65535"
-                autocomplete="off"
-              >
-              <small class="input-help">Port for network connections (default: 47584)</small>
-
-              <label for="accountName">Account Name:</label>
-              <input
-                type="text"
-                id="accountName"
-                placeholder="Your display name"
-                value="Goldberg"
-                autocomplete="off"
-              >
-
-              <label for="steamId">Steam ID:</label>
-              <input
-                type="text"
-                id="steamId"
-                placeholder="Auto-generated"
-                value="76561197960287930"
-                autocomplete="off"
-              >
-              <small class="input-help">Change the last digits for each player on VLAN (e.g., increment by 1)</small>
-
-              <div class="checkbox-container">
-                <input type="checkbox" id="useCustomBroadcastIp">
-                <label for="useCustomBroadcastIp" class="checkbox-label">
-                  Use Custom Broadcast IP
-                </label>
-              </div>
-
-              <input
-                type="text"
-                id="customBroadcastIp"
-                placeholder="127.0.0.1"
-                value="127.0.0.1"
-                autocomplete="off"
-                class="hidden"
-              >
-
-              <div class="checkbox-container">
-                <input type="checkbox" id="disableNetworking">
-                <label for="disableNetworking" class="checkbox-label">
-                  Disable Networking
-                </label>
-              </div>
-
-              <div class="checkbox-container">
-                <input type="checkbox" id="offlineMode">
-                <label for="offlineMode" class="checkbox-label">
-                  Offline Mode
-                </label>
-              </div>
-
-              <div class="checkbox-container">
-                <input type="checkbox" id="enableOverlay" checked>
-                <label for="enableOverlay" class="checkbox-label">
-                  Enable Overlay
-                </label>
-              </div>
-            </div>
+            <label for="steamApiKey">Steam Web API Key (Optional):</label>
+            <input
+              type="text"
+              id="steamApiKey"
+              placeholder="Get from https://steamcommunity.com/dev/apikey"
+              autocomplete="off"
+            >
+            <small class="input-help">Optional - only needed to download achievements</small>
           </div>
         </div>
 
