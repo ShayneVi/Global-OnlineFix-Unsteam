@@ -4,5 +4,6 @@ const { contextBridge, ipcRenderer } = require('electron');
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
   installGlobalFix: (appId, goldbergOptions) => ipcRenderer.invoke('install-globalfix', appId, goldbergOptions),
+  unfixGame: (appId) => ipcRenderer.invoke('unfix-game', appId),
   fetchSteamApps: () => ipcRenderer.invoke('fetch-steam-apps')
 });

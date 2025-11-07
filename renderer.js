@@ -3,6 +3,7 @@ const gameSearchInput = document.getElementById('gameSearch');
 const searchDropdown = document.getElementById('searchDropdown');
 const appIdInput = document.getElementById('appId');
 const installBtn = document.getElementById('installBtn');
+const unfixBtn = document.getElementById('unfixBtn');
 const statusSection = document.getElementById('status');
 const statusText = document.getElementById('statusText');
 const spinner = document.getElementById('spinner');
@@ -119,9 +120,11 @@ goldbergCheckbox.addEventListener('change', () => {
   }
 });
 
-// Enable install button when AppID is entered
+// Enable buttons when AppID is entered
 appIdInput.addEventListener('input', () => {
-  installBtn.disabled = appIdInput.value.trim() === '';
+  const hasAppId = appIdInput.value.trim() !== '';
+  installBtn.disabled = !hasAppId;
+  unfixBtn.disabled = !hasAppId;
 });
 
 // Handle Enter key in input
@@ -255,6 +258,85 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Handle unfix button click
+unfixBtn.addEventListener('click', handleUnfix);
+
+async function handleUnfix() {
+  const appId = appIdInput.value.trim();
+
+  if (!appId) {
+    showError('App ID Required', 'Please enter a Steam App ID to unfix.');
+    return;
+  }
+
+  // Validate AppID (should be numbers only)
+  if (!/^\d+$/.test(appId)) {
+    showError('Invalid App ID', 'Please enter a valid numeric Steam App ID.');
+    return;
+  }
+
+  // Confirm with user
+  if (!confirm('This will remove all GlobalFix and Goldberg modifications from the game. Continue?')) {
+    return;
+  }
+
+  // Disable input during unfix
+  appIdInput.disabled = true;
+  installBtn.disabled = true;
+  unfixBtn.disabled = true;
+  goldbergCheckbox.disabled = true;
+
+  // Show status
+  showStatus('Unfixing game...');
+
+  try {
+    // Call the main process to unfix the game
+    const result = await window.electronAPI.unfixGame(appId);
+
+    hideStatus();
+
+    if (result.success) {
+      showUnfixSuccess(result);
+    } else {
+      showError('Unfix Failed', result.error || 'An error occurred while unfixing the game.');
+    }
+  } catch (error) {
+    hideStatus();
+    showError('Unfix Error', error.message || 'An unexpected error occurred.');
+  } finally {
+    // Re-enable input
+    appIdInput.disabled = false;
+    installBtn.disabled = false;
+    unfixBtn.disabled = false;
+    goldbergCheckbox.disabled = false;
+  }
+}
+
+function showUnfixSuccess(result) {
+  resultSection.classList.remove('hidden', 'error');
+  resultSection.classList.add('success');
+  resultTitle.textContent = '✓ Game Unfixed Successfully!';
+
+  const removedItemsHtml = result.removedItems && result.removedItems.length > 0
+    ? `<ul style="margin-left: 20px; margin-top: 10px; line-height: 1.6;">${result.removedItems.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+    : '<p>No modifications were found to remove.</p>';
+
+  resultDetails.innerHTML = `
+    <div class="result-details-item">
+      <strong>Game Folder:</strong> ${escapeHtml(result.gameFolder)}
+    </div>
+    <div class="result-details-item" style="margin-top: 15px;">
+      <strong>Removed Items:</strong>
+      ${removedItemsHtml}
+    </div>
+    <div class="result-details-item" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ccc;">
+      <p>✓ The game has been restored to its original state.</p>
+      <p>You can now launch the game normally through Steam.</p>
+    </div>
+  `;
+}
+
 // Initialize
 installBtn.disabled = true;
+unfixBtn.disabled = true;
 loadSteamApps();

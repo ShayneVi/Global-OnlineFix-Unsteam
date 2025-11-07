@@ -607,6 +607,155 @@ async function installGoldberg(gameFolder, appId, goldbergOptions) {
   };
 }
 
+// Recursively search for files matching pattern
+function findFiles(dir, pattern) {
+  let results = [];
+  if (!fs.existsSync(dir)) return results;
+
+  const files = fs.readdirSync(dir);
+  for (const file of files) {
+    const fullPath = path.join(dir, file);
+    try {
+      const stat = fs.statSync(fullPath);
+      if (stat.isDirectory()) {
+        results = results.concat(findFiles(fullPath, pattern));
+      } else if (file.toLowerCase() === pattern.toLowerCase()) {
+        results.push(fullPath);
+      }
+    } catch (err) {
+      console.warn(`Error accessing ${fullPath}:`, err);
+    }
+  }
+  return results;
+}
+
+// Unfix game - remove all GlobalFix and Goldberg modifications
+async function unfixGame(gameFolder) {
+  const removedItems = [];
+  const errors = [];
+
+  // 1. Restore steam_api.dll.bak or steam_api64.dll.bak
+  const bakFiles = findFiles(gameFolder, 'steam_api.dll.bak').concat(
+    findFiles(gameFolder, 'steam_api64.dll.bak')
+  );
+
+  for (const bakFile of bakFiles) {
+    try {
+      const originalPath = bakFile.replace('.bak', '');
+      if (fs.existsSync(originalPath)) {
+        fs.unlinkSync(originalPath);
+      }
+      fs.renameSync(bakFile, originalPath);
+      removedItems.push(`Restored: ${path.basename(originalPath)}`);
+    } catch (err) {
+      errors.push(`Failed to restore ${bakFile}: ${err.message}`);
+    }
+  }
+
+  // 2. Delete steam_settings folders
+  const steamSettingsFolders = [];
+  function findSteamSettings(dir, depth = 0) {
+    if (depth > 3 || !fs.existsSync(dir)) return; // Limit recursion depth
+
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+      const fullPath = path.join(dir, file);
+      try {
+        const stat = fs.statSync(fullPath);
+        if (stat.isDirectory()) {
+          if (file.toLowerCase() === 'steam_settings') {
+            steamSettingsFolders.push(fullPath);
+          } else {
+            findSteamSettings(fullPath, depth + 1);
+          }
+        }
+      } catch (err) {
+        console.warn(`Error accessing ${fullPath}:`, err);
+      }
+    }
+  }
+
+  findSteamSettings(gameFolder);
+
+  for (const folder of steamSettingsFolders) {
+    try {
+      fs.rmSync(folder, { recursive: true, force: true });
+      removedItems.push(`Deleted: steam_settings folder`);
+    } catch (err) {
+      errors.push(`Failed to delete steam_settings: ${err.message}`);
+    }
+  }
+
+  // 3. Delete all Unsteam files
+  const unsteamFiles = [
+    'unsteam.ini',
+    'unsteam64.dll',
+    'unsteam.dll',
+    'unsteam_loader64.exe',
+    'unsteam_loader32.exe',
+    'winmm.dll'
+  ];
+
+  for (const fileName of unsteamFiles) {
+    const foundFiles = findFiles(gameFolder, fileName);
+    for (const filePath of foundFiles) {
+      try {
+        fs.unlinkSync(filePath);
+        removedItems.push(`Deleted: ${fileName}`);
+      } catch (err) {
+        errors.push(`Failed to delete ${fileName}: ${err.message}`);
+      }
+    }
+  }
+
+  return {
+    success: errors.length === 0,
+    removedItems: removedItems,
+    errors: errors
+  };
+}
+
+// IPC handler for unfixing games
+ipcMain.handle('unfix-game', async (event, appId) => {
+  try {
+    // Step 1: Find Steam installation
+    const steamPath = findSteamPath();
+    if (!steamPath) {
+      return { success: false, error: 'Steam installation not found' };
+    }
+
+    // Step 2: Get all Steam library paths
+    const libraries = getSteamLibraryPaths(steamPath);
+
+    // Step 3: Find game by AppID
+    const gameFolder = findGameByAppId(libraries, appId);
+    if (!gameFolder) {
+      return { success: false, error: `Game with AppID ${appId} not found in any Steam library` };
+    }
+
+    // Step 4: Unfix the game
+    const result = await unfixGame(gameFolder);
+
+    if (result.success) {
+      return {
+        success: true,
+        gameFolder: gameFolder,
+        removedItems: result.removedItems
+      };
+    } else {
+      return {
+        success: false,
+        error: 'Some errors occurred during unfix',
+        removedItems: result.removedItems,
+        errors: result.errors
+      };
+    }
+  } catch (error) {
+    console.error('Unfix error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // Main IPC handler
 ipcMain.handle('install-globalfix', async (event, appId, goldbergOptions) => {
   try {
