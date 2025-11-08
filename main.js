@@ -759,7 +759,11 @@ function parseWikitext(wikitext) {
   const connectionsMatch = wikitext.match(/{{Network\/Connections([^}]+(?:}(?!})[^}]*)*)}}/s);
   if (connectionsMatch) {
     const connectionsText = connectionsMatch[0];
-    console.log('[PCGamingWiki] Raw connections template:', connectionsText);
+
+    // Log the FULL connections template (split into chunks if needed)
+    console.log('[PCGamingWiki] ========== FULL CONNECTIONS TEMPLATE START ==========');
+    console.log(connectionsText);
+    console.log('[PCGamingWiki] ========== FULL CONNECTIONS TEMPLATE END ==========');
 
     result.connections.matchmaking = extractField(connectionsText, 'matchmaking');
     result.connections.matchmakingNotes = extractField(connectionsText, 'matchmaking notes');
@@ -797,29 +801,29 @@ function parseWikitext(wikitext) {
 
 // Extract field value from wikitext
 function extractField(text, fieldName) {
-  // Try multiple patterns to handle different wikitext formats
+  // Strategy: First check if there's content on the same line as the = sign
+  // If yes, then capture everything (including subsequent lines) until the next field
+  // If no, the field is empty
 
-  // Pattern 1: Standard single-line field
-  let regex = new RegExp(`\\|\\s*${fieldName}\\s*=\\s*([^|\\n]+)`, 'i');
-  let match = text.match(regex);
-  if (match && match[1] && match[1].trim() !== '') {
-    return match[1].trim();
+  // Try to match content on the same line as the = sign
+  const sameLineRegex = new RegExp(`\\|\\s*${fieldName}\\s*=\\s*([^\\n]+)`, 'i');
+  const sameLineMatch = text.match(sameLineRegex);
+
+  if (sameLineMatch && sameLineMatch[1] && sameLineMatch[1].trim()) {
+    // There's content on the same line
+    // Now check if it continues on subsequent lines (for multi-line values)
+    const multiLineRegex = new RegExp(`\\|\\s*${fieldName}\\s*=\\s*([\\s\\S]*?)(?=\\n\\s*\\||$)`, 'i');
+    const multiLineMatch = text.match(multiLineRegex);
+
+    if (multiLineMatch && multiLineMatch[1]) {
+      return multiLineMatch[1].trim();
+    }
+
+    // Fall back to same-line match
+    return sameLineMatch[1].trim();
   }
 
-  // Pattern 2: Multi-line field (capture until next | or end)
-  regex = new RegExp(`\\|\\s*${fieldName}\\s*=\\s*([^|]+?)(?=\\||$)`, 'is');
-  match = text.match(regex);
-  if (match && match[1] && match[1].trim() !== '') {
-    return match[1].trim();
-  }
-
-  // Pattern 3: Field with nested templates
-  regex = new RegExp(`\\|\\s*${fieldName}\\s*=\\s*(.+?)(?=\\n\\s*\\||$)`, 'is');
-  match = text.match(regex);
-  if (match && match[1] && match[1].trim() !== '') {
-    return match[1].trim();
-  }
-
+  // No content on the same line = field is empty
   return '';
 }
 
