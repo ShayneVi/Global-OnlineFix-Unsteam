@@ -141,6 +141,30 @@ async function fetchAndDisplayGameInfo(appId) {
   }
 }
 
+// Clean wikitext markup from text
+function cleanWikitext(text) {
+  if (!text) return '';
+
+  let cleaned = text;
+
+  // Remove MediaWiki references like <ref>...</ref> or <ref name="..." />
+  cleaned = cleaned.replace(/<ref[^>]*>.*?<\/ref>/gi, '');
+  cleaned = cleaned.replace(/<ref[^>]*\/>/gi, '');
+  cleaned = cleaned.replace(/<ref[^>]*>/gi, '');
+
+  // Remove MediaWiki templates like {{...}}
+  cleaned = cleaned.replace(/\{\{[^}]*\}\}/g, '');
+
+  // Remove HTML tags
+  cleaned = cleaned.replace(/<br\s*\/?>/gi, ' ');
+  cleaned = cleaned.replace(/<[^>]+>/g, '');
+
+  // Clean up multiple spaces and trim
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+
+  return cleaned;
+}
+
 // Populate game info tables
 function populateGameInfo(data) {
   const multiplayerTableBody = document.getElementById('multiplayerTableBody');
@@ -153,34 +177,36 @@ function populateGameInfo(data) {
   if (data.multiplayer && Object.keys(data.multiplayer).length > 0) {
     const mp = data.multiplayer;
 
-    // Local Play
-    if (mp.localPlay) {
-      multiplayerRows.push(createTableRow('Local Play', mp.localPlay, mp.localPlayNotes || mp.localPlayPlayers));
+    // Local Play - show if defined
+    if (mp.localPlay !== undefined) {
+      const details = cleanWikitext(mp.localPlayNotes || mp.localPlayPlayers || '');
+      multiplayerRows.push(createTableRow('Local Play', mp.localPlay, details));
     }
 
-    // LAN Play
-    if (mp.lanPlay) {
-      multiplayerRows.push(createTableRow('LAN Play', mp.lanPlay, mp.lanPlayNotes || mp.lanPlayPlayers));
+    // LAN Play - show if defined
+    if (mp.lanPlay !== undefined) {
+      const details = cleanWikitext(mp.lanPlayNotes || mp.lanPlayPlayers || '');
+      multiplayerRows.push(createTableRow('LAN Play', mp.lanPlay, details));
     }
 
-    // Online Play
-    if (mp.onlinePlay) {
+    // Online Play - show if defined
+    if (mp.onlinePlay !== undefined) {
       const onlineDetails = [
         mp.onlinePlayPlayers && `${mp.onlinePlayPlayers} players`,
         mp.onlinePlayModes,
-        mp.onlinePlayNotes
+        cleanWikitext(mp.onlinePlayNotes || '')
       ].filter(Boolean).join(', ');
       multiplayerRows.push(createTableRow('Online Play', mp.onlinePlay, onlineDetails));
     }
 
-    // Crossplay
-    if (mp.crossplay) {
-      const crossplayDetails = [mp.crossplayPlatforms, mp.crossplayNotes].filter(Boolean).join(', ');
+    // Crossplay - show if defined
+    if (mp.crossplay !== undefined) {
+      const crossplayDetails = cleanWikitext([mp.crossplayPlatforms, mp.crossplayNotes].filter(Boolean).join(', '));
       multiplayerRows.push(createTableRow('Crossplay', mp.crossplay, crossplayDetails));
     }
 
-    // Asynchronous
-    if (mp.asynchronous) {
+    // Asynchronous - show if defined
+    if (mp.asynchronous !== undefined) {
       multiplayerRows.push(createTableRow('Asynchronous', mp.asynchronous, ''));
     }
   }
@@ -191,36 +217,18 @@ function populateGameInfo(data) {
     multiplayerTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No info</td></tr>';
   }
 
-  // Populate connection table
+  // Populate connection table - ALWAYS show all connection types
   const connectionRows = [];
 
   if (data.connections && Object.keys(data.connections).length > 0) {
     const conn = data.connections;
 
-    // Matchmaking
-    if (conn.matchmaking) {
-      connectionRows.push(createTableRow('Matchmaking', conn.matchmaking, conn.matchmakingNotes));
-    }
-
-    // P2P
-    if (conn.p2p) {
-      connectionRows.push(createTableRow('P2P', conn.p2p, conn.p2pNotes));
-    }
-
-    // Dedicated Servers
-    if (conn.dedicated) {
-      connectionRows.push(createTableRow('Dedicated Servers', conn.dedicated, conn.dedicatedNotes));
-    }
-
-    // Self-Hosting
-    if (conn.selfHosting) {
-      connectionRows.push(createTableRow('Self-Hosting', conn.selfHosting, conn.selfHostingNotes));
-    }
-
-    // Direct IP
-    if (conn.directIp) {
-      connectionRows.push(createTableRow('Direct IP', conn.directIp, conn.directIpNotes));
-    }
+    // Always show these connection types (even if empty)
+    connectionRows.push(createTableRow('Matchmaking', conn.matchmaking || '', cleanWikitext(conn.matchmakingNotes || '')));
+    connectionRows.push(createTableRow('P2P', conn.p2p || '', cleanWikitext(conn.p2pNotes || '')));
+    connectionRows.push(createTableRow('Dedicated Servers', conn.dedicated || '', cleanWikitext(conn.dedicatedNotes || '')));
+    connectionRows.push(createTableRow('Self-Hosting', conn.selfHosting || '', cleanWikitext(conn.selfHostingNotes || '')));
+    connectionRows.push(createTableRow('Direct IP', conn.directIp || '', cleanWikitext(conn.directIpNotes || '')));
   }
 
   if (connectionRows.length > 0) {
@@ -249,7 +257,9 @@ function createTableRow(type, support, details) {
 
 // Format support value
 function formatSupport(value) {
-  if (!value) return '';
+  if (!value || value.trim() === '') {
+    return '❓ Unknown';
+  }
 
   const lowerValue = value.toLowerCase().trim();
 
@@ -259,7 +269,7 @@ function formatSupport(value) {
     return '❌ No';
   } else if (lowerValue === 'limited' || lowerValue === 'hackable') {
     return '⚠️ ' + escapeHtml(value);
-  } else if (lowerValue === 'unknown' || lowerValue === '') {
+  } else if (lowerValue === 'unknown') {
     return '❓ Unknown';
   } else {
     return escapeHtml(value);
