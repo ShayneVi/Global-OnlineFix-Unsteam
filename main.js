@@ -801,6 +801,8 @@ function parseWikitext(wikitext) {
 
 // Extract field value from wikitext
 function extractField(text, fieldName) {
+  console.log(`[extractField v2.0] Extracting field: ${fieldName}`);
+
   // Strategy: First check if there's content on the same line as the = sign
   // If yes, then capture everything (including subsequent lines) until the next field
   // If no, the field is empty
