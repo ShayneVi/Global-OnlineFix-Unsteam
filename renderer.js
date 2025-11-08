@@ -147,17 +147,33 @@ function cleanWikitext(text) {
 
   let cleaned = text;
 
+  // Remove nested MediaWiki templates like {{...}} using iterative approach
+  // Keep removing until no more templates found
+  let prevLength = 0;
+  while (cleaned.length !== prevLength) {
+    prevLength = cleaned.length;
+    // Remove simple templates first
+    cleaned = cleaned.replace(/\{\{[^{}]*\}\}/g, '');
+  }
+
   // Remove MediaWiki references like <ref>...</ref> or <ref name="..." />
-  cleaned = cleaned.replace(/<ref[^>]*>.*?<\/ref>/gi, '');
+  cleaned = cleaned.replace(/<ref[^>]*>.*?<\/ref>/gis, '');
   cleaned = cleaned.replace(/<ref[^>]*\/>/gi, '');
   cleaned = cleaned.replace(/<ref[^>]*>/gi, '');
+  cleaned = cleaned.replace(/<\/ref>/gi, '');
 
-  // Remove MediaWiki templates like {{...}}
-  cleaned = cleaned.replace(/\{\{[^}]*\}\}/g, '');
+  // Convert wiki links [url text] to just the text
+  cleaned = cleaned.replace(/\[https?:\/\/[^\s\]]+\s+([^\]]+)\]/g, '$1');
+  cleaned = cleaned.replace(/\[https?:\/\/[^\]]+\]/g, '');
 
   // Remove HTML tags
   cleaned = cleaned.replace(/<br\s*\/?>/gi, ' ');
   cleaned = cleaned.replace(/<[^>]+>/g, '');
+
+  // Remove any remaining template artifacts
+  cleaned = cleaned.replace(/\{\{/g, '');
+  cleaned = cleaned.replace(/\}\}/g, '');
+  cleaned = cleaned.replace(/\|[a-z\s]+=/gi, '');
 
   // Clean up multiple spaces and trim
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
