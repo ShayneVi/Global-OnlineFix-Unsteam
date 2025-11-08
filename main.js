@@ -830,10 +830,10 @@ function extractTemplate(wikitext, templateName) {
 
 // Extract field value from wikitext
 function extractField(text, fieldName) {
-  // Match the field and capture everything until the next field or end
-  // This regex looks for |fieldname = and captures content until the next | at the start of a line
-  const regex = new RegExp(`\\|\\s*${fieldName}\\s*=\\s*([^\\n]*)`, 'i');
-  const match = text.match(regex);
+  // Match: |fieldname = <value on same line>
+  // We only capture what's on the SAME line as the field definition
+  const sameLineRegex = new RegExp(`\\|\\s*${fieldName}\\s*=\\s*([^\\n]*)`, 'i');
+  const match = text.match(sameLineRegex);
 
   if (!match) {
     return '';
@@ -841,15 +841,18 @@ function extractField(text, fieldName) {
 
   const value = match[1].trim();
 
-  // If the value is empty, the field is empty
+  // If nothing on the same line, field is empty - return immediately
   if (!value) {
     return '';
   }
 
-  // If the value exists, check if it continues on multiple lines
-  // Capture everything from the field until the next field (starts with |)
+  // There's content on the same line. Now check if it continues on subsequent lines.
+  // We need to capture from the field name until:
+  // - The next field (line starting with |)
+  // - The closing braces (}})
+  // - End of string
   const multiLineRegex = new RegExp(
-    `\\|\\s*${fieldName}\\s*=\\s*([\\s\\S]*?)(?=\\n\\s*\\||\\n\\s*}}|$)`,
+    `\\|\\s*${fieldName}\\s*=\\s*([\\s\\S]*?)(?=\\n\\|[^\\n]*=|}}|$)`,
     'i'
   );
   const multiLineMatch = text.match(multiLineRegex);
@@ -858,6 +861,7 @@ function extractField(text, fieldName) {
     return multiLineMatch[1].trim();
   }
 
+  // Fall back to single-line value
   return value;
 }
 
