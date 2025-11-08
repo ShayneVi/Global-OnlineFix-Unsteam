@@ -607,6 +607,134 @@ async function installGoldberg(gameFolder, appId, goldbergOptions) {
   };
 }
 
+// Fetch game info from PCGamingWiki
+async function fetchPCGamingWikiInfo(appId) {
+  return new Promise((resolve) => {
+    // First, get the page wikitext using Steam AppID
+    const url = `https://www.pcgamingwiki.com/w/api.php?action=parse&page=Special:CargoExport&format=json`;
+
+    // Try to get page content via appid redirect
+    const redirectUrl = `https://pcgamingwiki.com/api/appid.php?appid=${appId}`;
+
+    https.get(redirectUrl, { rejectUnauthorized: false }, (response) => {
+      // Follow redirect to get actual page
+      if (response.statusCode === 302 || response.statusCode === 301) {
+        const location = response.headers.location;
+        const pageName = location.split('/wiki/')[1];
+
+        if (!pageName) {
+          resolve({ success: false, error: 'Game not found on PCGamingWiki' });
+          return;
+        }
+
+        // Now fetch the wikitext for this page
+        const wikitextUrl = `https://www.pcgamingwiki.com/w/api.php?action=parse&page=${pageName}&prop=wikitext&format=json`;
+
+        https.get(wikitextUrl, { rejectUnauthorized: false }, (wikitextResponse) => {
+          let data = '';
+          wikitextResponse.on('data', (chunk) => { data += chunk; });
+          wikitextResponse.on('end', () => {
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.parse && parsed.parse.wikitext) {
+                const wikitext = parsed.parse.wikitext['*'];
+                const gameInfo = parseWikitext(wikitext);
+                resolve({ success: true, data: gameInfo });
+              } else {
+                resolve({ success: false, error: 'No wikitext found' });
+              }
+            } catch (error) {
+              resolve({ success: false, error: 'Failed to parse response' });
+            }
+          });
+        }).on('error', () => {
+          resolve({ success: false, error: 'Network error' });
+        });
+      } else {
+        resolve({ success: false, error: 'Game not found on PCGamingWiki' });
+      }
+    }).on('error', () => {
+      resolve({ success: false, error: 'Network error' });
+    });
+  });
+}
+
+// Parse wikitext to extract multiplayer and connection data
+function parseWikitext(wikitext) {
+  const result = {
+    multiplayer: {},
+    connections: {}
+  };
+
+  // Extract multiplayer data
+  const multiplayerMatch = wikitext.match(/{{Network\/Multiplayer([^}]+(?:}(?!})[^}]*)*)}}/s);
+  if (multiplayerMatch) {
+    const multiplayerText = multiplayerMatch[0];
+
+    result.multiplayer.localPlay = extractField(multiplayerText, 'local play');
+    result.multiplayer.localPlayPlayers = extractField(multiplayerText, 'local play players');
+    result.multiplayer.localPlayNotes = extractField(multiplayerText, 'local play notes');
+
+    result.multiplayer.lanPlay = extractField(multiplayerText, 'lan play');
+    result.multiplayer.lanPlayPlayers = extractField(multiplayerText, 'lan play players');
+    result.multiplayer.lanPlayNotes = extractField(multiplayerText, 'lan play notes');
+
+    result.multiplayer.onlinePlay = extractField(multiplayerText, 'online play');
+    result.multiplayer.onlinePlayPlayers = extractField(multiplayerText, 'online play players');
+    result.multiplayer.onlinePlayModes = extractField(multiplayerText, 'online play modes');
+    result.multiplayer.onlinePlayNotes = extractField(multiplayerText, 'online play notes');
+
+    result.multiplayer.crossplay = extractField(multiplayerText, 'crossplay');
+    result.multiplayer.crossplayPlatforms = extractField(multiplayerText, 'crossplay platforms');
+    result.multiplayer.crossplayNotes = extractField(multiplayerText, 'crossplay notes');
+
+    result.multiplayer.asynchronous = extractField(multiplayerText, 'asynchronous');
+  }
+
+  // Extract connection data
+  const connectionsMatch = wikitext.match(/{{Network\/Connections([^}]+(?:}(?!})[^}]*)*)}}/s);
+  if (connectionsMatch) {
+    const connectionsText = connectionsMatch[0];
+
+    result.connections.matchmaking = extractField(connectionsText, 'matchmaking');
+    result.connections.matchmakingNotes = extractField(connectionsText, 'matchmaking notes');
+
+    result.connections.p2p = extractField(connectionsText, 'p2p');
+    result.connections.p2pNotes = extractField(connectionsText, 'p2p notes');
+
+    result.connections.dedicated = extractField(connectionsText, 'dedicated');
+    result.connections.dedicatedNotes = extractField(connectionsText, 'dedicated notes');
+
+    result.connections.selfHosting = extractField(connectionsText, 'self-hosting');
+    result.connections.selfHostingNotes = extractField(connectionsText, 'self-hosting notes');
+
+    result.connections.directIp = extractField(connectionsText, 'direct ip');
+    result.connections.directIpNotes = extractField(connectionsText, 'direct ip notes');
+  }
+
+  return result;
+}
+
+// Extract field value from wikitext
+function extractField(text, fieldName) {
+  const regex = new RegExp(`\\|\\s*${fieldName}\\s*=\\s*([^|\\n]+)`, 'i');
+  const match = text.match(regex);
+  if (match && match[1]) {
+    return match[1].trim();
+  }
+  return '';
+}
+
+// IPC handler for fetching PCGamingWiki info
+ipcMain.handle('fetch-pcgamingwiki-info', async (event, appId) => {
+  try {
+    const result = await fetchPCGamingWikiInfo(appId);
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 // Recursively search for files matching pattern
 function findFiles(dir, pattern) {
   let results = [];

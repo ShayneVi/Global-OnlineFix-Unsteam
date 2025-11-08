@@ -35,6 +35,59 @@
           autocomplete="off"
         >
 
+        <!-- Game Info Section -->
+        <div id="gameInfoSection" class="game-info-section hidden">
+          <h3>Game Network Information</h3>
+
+          <div id="gameInfoLoading" class="game-info-loading hidden">
+            <div class="spinner-small"></div>
+            <span>Loading game information...</span>
+          </div>
+
+          <div id="gameInfoContent" class="game-info-content hidden">
+            <!-- Multiplayer Types Table -->
+            <div class="info-table-container">
+              <h4>🎮 Multiplayer Types</h4>
+              <table class="info-table">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Support</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody id="multiplayerTableBody">
+                  <tr>
+                    <td colspan="3">No info</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Connection Types Table -->
+            <div class="info-table-container">
+              <h4>🌐 Connection Types</h4>
+              <table class="info-table">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Support</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody id="connectionTableBody">
+                  <tr>
+                    <td colspan="3">No info</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Recommendations -->
+            <div id="gameRecommendations" class="game-recommendations"></div>
+          </div>
+        </div>
+
         <div class="options-section">
           <div class="checkbox-container">
             <input type="checkbox" id="goldbergCheckbox">

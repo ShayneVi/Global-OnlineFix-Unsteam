@@ -100,6 +100,219 @@ function selectGame(appId, gameName) {
   searchDropdown.classList.add('hidden');
   installBtn.disabled = false;
   unfixBtn.disabled = false;
+
+  // Fetch and display game info from PCGamingWiki
+  fetchAndDisplayGameInfo(appId);
+}
+
+// Fetch and display game info from PCGamingWiki
+async function fetchAndDisplayGameInfo(appId) {
+  const gameInfoSection = document.getElementById('gameInfoSection');
+  const gameInfoLoading = document.getElementById('gameInfoLoading');
+  const gameInfoContent = document.getElementById('gameInfoContent');
+
+  // Show section and loading state
+  gameInfoSection.classList.remove('hidden');
+  gameInfoLoading.classList.remove('hidden');
+  gameInfoContent.classList.add('hidden');
+
+  try {
+    const result = await window.electronAPI.fetchPCGamingWikiInfo(appId);
+
+    gameInfoLoading.classList.add('hidden');
+
+    if (result.success) {
+      populateGameInfo(result.data);
+      gameInfoContent.classList.remove('hidden');
+    } else {
+      // Show "No info" state
+      showNoGameInfo();
+    }
+  } catch (error) {
+    gameInfoLoading.classList.add('hidden');
+    showNoGameInfo();
+  }
+}
+
+// Populate game info tables
+function populateGameInfo(data) {
+  const multiplayerTableBody = document.getElementById('multiplayerTableBody');
+  const connectionTableBody = document.getElementById('connectionTableBody');
+  const gameRecommendations = document.getElementById('gameRecommendations');
+
+  // Populate multiplayer table
+  const multiplayerRows = [];
+
+  if (data.multiplayer && Object.keys(data.multiplayer).length > 0) {
+    const mp = data.multiplayer;
+
+    // Local Play
+    if (mp.localPlay) {
+      multiplayerRows.push(createTableRow('Local Play', mp.localPlay, mp.localPlayNotes || mp.localPlayPlayers));
+    }
+
+    // LAN Play
+    if (mp.lanPlay) {
+      multiplayerRows.push(createTableRow('LAN Play', mp.lanPlay, mp.lanPlayNotes || mp.lanPlayPlayers));
+    }
+
+    // Online Play
+    if (mp.onlinePlay) {
+      const onlineDetails = [
+        mp.onlinePlayPlayers && `${mp.onlinePlayPlayers} players`,
+        mp.onlinePlayModes,
+        mp.onlinePlayNotes
+      ].filter(Boolean).join(', ');
+      multiplayerRows.push(createTableRow('Online Play', mp.onlinePlay, onlineDetails));
+    }
+
+    // Crossplay
+    if (mp.crossplay) {
+      const crossplayDetails = [mp.crossplayPlatforms, mp.crossplayNotes].filter(Boolean).join(', ');
+      multiplayerRows.push(createTableRow('Crossplay', mp.crossplay, crossplayDetails));
+    }
+
+    // Asynchronous
+    if (mp.asynchronous) {
+      multiplayerRows.push(createTableRow('Asynchronous', mp.asynchronous, ''));
+    }
+  }
+
+  if (multiplayerRows.length > 0) {
+    multiplayerTableBody.innerHTML = multiplayerRows.join('');
+  } else {
+    multiplayerTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No info</td></tr>';
+  }
+
+  // Populate connection table
+  const connectionRows = [];
+
+  if (data.connections && Object.keys(data.connections).length > 0) {
+    const conn = data.connections;
+
+    // Matchmaking
+    if (conn.matchmaking) {
+      connectionRows.push(createTableRow('Matchmaking', conn.matchmaking, conn.matchmakingNotes));
+    }
+
+    // P2P
+    if (conn.p2p) {
+      connectionRows.push(createTableRow('P2P', conn.p2p, conn.p2pNotes));
+    }
+
+    // Dedicated Servers
+    if (conn.dedicated) {
+      connectionRows.push(createTableRow('Dedicated Servers', conn.dedicated, conn.dedicatedNotes));
+    }
+
+    // Self-Hosting
+    if (conn.selfHosting) {
+      connectionRows.push(createTableRow('Self-Hosting', conn.selfHosting, conn.selfHostingNotes));
+    }
+
+    // Direct IP
+    if (conn.directIp) {
+      connectionRows.push(createTableRow('Direct IP', conn.directIp, conn.directIpNotes));
+    }
+  }
+
+  if (connectionRows.length > 0) {
+    connectionTableBody.innerHTML = connectionRows.join('');
+  } else {
+    connectionTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No info</td></tr>';
+  }
+
+  // Generate recommendations
+  generateRecommendations(data, gameRecommendations);
+}
+
+// Create table row
+function createTableRow(type, support, details) {
+  const supportFormatted = formatSupport(support);
+  const detailsFormatted = escapeHtml(details || '');
+
+  return `
+    <tr>
+      <td>${escapeHtml(type)}</td>
+      <td>${supportFormatted}</td>
+      <td>${detailsFormatted}</td>
+    </tr>
+  `;
+}
+
+// Format support value
+function formatSupport(value) {
+  if (!value) return '';
+
+  const lowerValue = value.toLowerCase().trim();
+
+  if (lowerValue === 'true' || lowerValue === 'yes') {
+    return '✅ Yes';
+  } else if (lowerValue === 'false' || lowerValue === 'no') {
+    return '❌ No';
+  } else if (lowerValue === 'limited' || lowerValue === 'hackable') {
+    return '⚠️ ' + escapeHtml(value);
+  } else if (lowerValue === 'unknown' || lowerValue === '') {
+    return '❓ Unknown';
+  } else {
+    return escapeHtml(value);
+  }
+}
+
+// Generate recommendations
+function generateRecommendations(data, container) {
+  const recommendations = [];
+  const conn = data.connections || {};
+  const mp = data.multiplayer || {};
+
+  // Check for dedicated servers
+  const hasDedicatedServers = conn.dedicated && (conn.dedicated.toLowerCase() === 'true' || conn.dedicated.toLowerCase() === 'yes');
+  const hasP2P = conn.p2p && (conn.p2p.toLowerCase() === 'true' || conn.p2p.toLowerCase() === 'yes' || conn.p2p.toLowerCase() === 'limited');
+  const hasLAN = mp.lanPlay && (mp.lanPlay.toLowerCase() === 'true' || mp.lanPlay.toLowerCase() === 'yes');
+
+  if (hasDedicatedServers) {
+    recommendations.push({
+      type: 'error',
+      text: '⚠️ <strong>Unsteam Global Fix will NOT work</strong> - This game uses dedicated servers.'
+    });
+  } else if (hasP2P) {
+    recommendations.push({
+      type: 'warning',
+      text: '⚠️ <strong>Unsteam Global Fix should work</strong>, unless third-party authentications are used. If it does or doesn\'t work, please report the name of the game in <a href="https://github.com/ShayneVi/Global-OnlineFix-Unsteam/issues" target="_blank">GitHub Issues</a>.'
+    });
+  }
+
+  if (hasLAN) {
+    recommendations.push({
+      type: 'success',
+      text: '✅ <strong>Virtual LAN should function with Goldberg Steam Emu</strong> - Use tools like Hamachi or ZeroTier to create a virtual LAN.'
+    });
+  }
+
+  // Display recommendations
+  if (recommendations.length > 0) {
+    container.innerHTML = recommendations.map(rec => `
+      <div class="game-recommendations recommendation-${rec.type}">
+        ${rec.text}
+      </div>
+    `).join('');
+  } else {
+    container.innerHTML = '';
+  }
+}
+
+// Show no game info state
+function showNoGameInfo() {
+  const gameInfoContent = document.getElementById('gameInfoContent');
+  const multiplayerTableBody = document.getElementById('multiplayerTableBody');
+  const connectionTableBody = document.getElementById('connectionTableBody');
+  const gameRecommendations = document.getElementById('gameRecommendations');
+
+  multiplayerTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No info</td></tr>';
+  connectionTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No info</td></tr>';
+  gameRecommendations.innerHTML = '<div class="game-recommendations recommendation-info">ℹ️ No network information available for this game on PCGamingWiki.</div>';
+
+  gameInfoContent.classList.remove('hidden');
 }
 
 // Close dropdown when clicking outside
