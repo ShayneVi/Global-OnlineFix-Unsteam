@@ -608,17 +608,25 @@ async function installGoldberg(gameFolder, appId, goldbergOptions) {
 }
 
 // Helper function to make HTTP request using Electron's net module (bypasses Cloudflare)
-function makeElectronRequest(url) {
+function makeElectronRequest(url, followRedirects = true) {
   return new Promise((resolve, reject) => {
+    const redirectUrls = [];
+
     const request = net.request({
       method: 'GET',
       url: url,
-      redirect: 'manual' // Handle redirects manually
+      redirect: followRedirects ? 'follow' : 'manual'
     });
 
     request.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     request.setHeader('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8');
     request.setHeader('Accept-Language', 'en-US,en;q=0.9');
+
+    // Track redirects
+    request.on('redirect', (statusCode, method, redirectUrl, responseHeaders) => {
+      console.log(`[PCGamingWiki] Redirect ${statusCode}: ${redirectUrl}`);
+      redirectUrls.push(redirectUrl);
+    });
 
     request.on('response', (response) => {
       let data = '';
@@ -631,7 +639,9 @@ function makeElectronRequest(url) {
         resolve({
           statusCode: response.statusCode,
           headers: response.headers,
-          data: data
+          data: data,
+          redirectUrls: redirectUrls,
+          finalUrl: redirectUrls.length > 0 ? redirectUrls[redirectUrls.length - 1] : url
         });
       });
 
@@ -653,41 +663,24 @@ async function fetchPCGamingWikiInfo(appId) {
   try {
     console.log(`[PCGamingWiki] Fetching info for AppID: ${appId}`);
 
-    // Step 1: Get the redirect from appid.php
+    // Step 1: Get the redirect from appid.php (follow redirects automatically)
     const redirectUrl = `https://pcgamingwiki.com/api/appid.php?appid=${appId}`;
-    const firstResponse = await makeElectronRequest(redirectUrl);
+    const response = await makeElectronRequest(redirectUrl, true);
 
-    console.log(`[PCGamingWiki] First response status: ${firstResponse.statusCode}`);
-    console.log(`[PCGamingWiki] First response location: ${firstResponse.headers.location}`);
+    console.log(`[PCGamingWiki] Final response status: ${response.statusCode}`);
+    console.log(`[PCGamingWiki] Redirect chain:`, response.redirectUrls);
+    console.log(`[PCGamingWiki] Final URL: ${response.finalUrl}`);
 
-    if (firstResponse.statusCode !== 302 && firstResponse.statusCode !== 301 && firstResponse.statusCode !== 308) {
-      console.log('[PCGamingWiki] ERROR: Unexpected status code');
-      return { success: false, error: `Game not found on PCGamingWiki (status: ${firstResponse.statusCode})` };
+    // The final redirect URL should be the wiki page
+    const finalUrl = response.finalUrl;
+
+    if (!finalUrl || !finalUrl.includes('/wiki/')) {
+      console.log('[PCGamingWiki] ERROR: No wiki page found in redirects');
+      return { success: false, error: 'Game not found on PCGamingWiki' };
     }
 
-    let location = firstResponse.headers.location;
-    if (Array.isArray(location)) location = location[0]; // Handle array of redirect URLs
-
-    // Step 2: If redirected to www subdomain, follow it
-    if (location && location.includes('www.pcgamingwiki.com/api/appid.php')) {
-      console.log(`[PCGamingWiki] Following www redirect: ${location}`);
-
-      const secondResponse = await makeElectronRequest(location);
-
-      console.log(`[PCGamingWiki] Second response status: ${secondResponse.statusCode}`);
-      console.log(`[PCGamingWiki] Second response location: ${secondResponse.headers.location}`);
-
-      if (secondResponse.statusCode !== 302 && secondResponse.statusCode !== 301) {
-        console.log('[PCGamingWiki] ERROR: Unexpected second redirect status');
-        return { success: false, error: 'Unexpected redirect response' };
-      }
-
-      location = secondResponse.headers.location;
-      if (Array.isArray(location)) location = location[0];
-    }
-
-    // Step 3: Extract page name from final redirect
-    const pageName = location ? location.split('/wiki/')[1] : null;
+    // Extract page name from final URL
+    const pageName = finalUrl.split('/wiki/')[1];
 
     console.log(`[PCGamingWiki] Extracted page name: ${pageName}`);
 
@@ -696,11 +689,11 @@ async function fetchPCGamingWikiInfo(appId) {
       return { success: false, error: 'Game not found on PCGamingWiki' };
     }
 
-    // Step 4: Fetch wikitext for the page
+    // Step 2: Fetch wikitext for the page
     const wikitextUrl = `https://www.pcgamingwiki.com/w/api.php?action=parse&page=${pageName}&prop=wikitext&format=json`;
     console.log(`[PCGamingWiki] Fetching wikitext from: ${wikitextUrl}`);
 
-    const wikitextResponse = await makeElectronRequest(wikitextUrl);
+    const wikitextResponse = await makeElectronRequest(wikitextUrl, true);
 
     if (wikitextResponse.statusCode !== 200) {
       console.log('[PCGamingWiki] ERROR: Failed to fetch wikitext');
