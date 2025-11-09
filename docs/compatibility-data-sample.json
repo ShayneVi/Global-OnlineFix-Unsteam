@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Paint the Town Red",
+    "appId": "337320",
+    "unsteam": {
+      "status": "works",
+      "notes": "LAN play confirmed. Online play works with Steam servers."
+    },
+    "goldberg": {
+      "status": "works",
+      "notes": "Achievements work. Friends list functional."
+    },
+    "steamless": {
+      "status": "not-needed",
+      "notes": "Game does not have SteamStub protection."
+    },
+    "lastTested": "2025-11-09",
+    "testedBy": "community"
+  },
+  {
+    "name": "Deep Rock Galactic",
+    "appId": "548430",
+    "unsteam": {
+      "status": "works",
+      "notes": "Full multiplayer support. LAN and online both work."
+    },
+    "goldberg": {
+      "status": "works",
+      "notes": "All features functional."
+    },
+    "steamless": {
+      "status": "works",
+      "notes": "Required before applying other fixes. Run Steamless first."
+    },
+    "lastTested": "2025-11-08",
+    "testedBy": "community"
+  }
+]

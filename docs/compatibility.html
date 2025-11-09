@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compatibility List - Global Online Fix</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="compatibility.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <span class="brand-icon">🎮</span>
+                <span class="brand-text">ShayneVi</span>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="index.html#apps" class="nav-link">Apps</a>
+                <a href="compatibility.html" class="nav-link active">Compatibility</a>
+                <a href="https://github.com/ShayneVi" target="_blank" class="nav-link">GitHub</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header -->
+    <section class="compat-header">
+        <div class="container">
+            <h1 class="compat-title">Game Compatibility Database</h1>
+            <p class="compat-subtitle">Community-tested compatibility for Unsteam, Goldberg, and Steamless</p>
+
+            <!-- Search and Filter -->
+            <div class="compat-controls">
+                <div class="search-box">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 17C13.4183 17 17 13.4183 17 9C17 4.58172 13.4183 1 9 1C4.58172 1 1 4.58172 1 9C1 13.4183 4.58172 17 9 17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M19 19L14.65 14.65" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <input type="text" id="searchInput" placeholder="Search games...">
+                </div>
+
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="unsteam">Unsteam</button>
+                    <button class="filter-btn" data-filter="goldberg">Goldberg</button>
+                    <button class="filter-btn" data-filter="steamless">Steamless</button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="compat-stats">
+                <div class="stat-card">
+                    <div class="stat-icon">🎮</div>
+                    <div class="stat-value" id="totalGames">0</div>
+                    <div class="stat-label">Total Games</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-value" id="compatibleGames">0</div>
+                    <div class="stat-label">Compatible</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🔧</div>
+                    <div class="stat-value" id="partialGames">0</div>
+                    <div class="stat-label">Partial Support</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">👥</div>
+                    <div class="stat-value">Community</div>
+                    <div class="stat-label">Tested By</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Compatibility Table -->
+    <section class="compat-section">
+        <div class="container">
+            <div class="table-container">
+                <table class="compat-table" id="compatTable">
+                    <thead>
+                        <tr>
+                            <th>Game Name</th>
+                            <th>App ID</th>
+                            <th>Unsteam</th>
+                            <th>Goldberg</th>
+                            <th>Steamless</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="compatTableBody">
+                        <!-- Sample data - will be replaced with actual data -->
+                        <tr>
+                            <td colspan="6" class="no-data">
+                                <div class="no-data-content">
+                                    <div class="no-data-icon">📋</div>
+                                    <h3>Compatibility Data Coming Soon</h3>
+                                    <p>The community-tested compatibility database is being compiled.</p>
+                                    <p>Once available, you'll be able to:</p>
+                                    <ul>
+                                        <li>Search for your favorite games</li>
+                                        <li>Check Unsteam, Goldberg, and Steamless compatibility</li>
+                                        <li>View community notes and tips</li>
+                                        <li>Contribute your own test results</li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Legend -->
+            <div class="legend">
+                <h3>Status Legend</h3>
+                <div class="legend-items">
+                    <div class="legend-item">
+                        <span class="status-badge status-works">✓</span>
+                        <span>Works - Fully compatible</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="status-badge status-partial">⚠</span>
+                        <span>Partial - Some features may not work</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="status-badge status-not-needed">—</span>
+                        <span>Not Needed - Tool not required</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="status-badge status-fails">✗</span>
+                        <span>Fails - Does not work</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="status-badge status-untested">?</span>
+                        <span>Untested - Not yet verified</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contribute Section -->
+            <div class="contribute-section">
+                <h3>Help Expand the Database</h3>
+                <p>Have you tested a game? Share your results with the community!</p>
+                <a href="https://github.com/ShayneVi/Global-OnlineFix-Unsteam/issues" target="_blank" class="btn btn-primary">Report Compatibility</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>ShayneVi</h4>
+                    <p>Free, open-source gaming tools for the community</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Links</h4>
+                    <a href="index.html">Home</a>
+                    <a href="index.html#apps">Applications</a>
+                    <a href="compatibility.html">Compatibility</a>
+                    <a href="https://github.com/ShayneVi" target="_blank">GitHub Profile</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Contribute</h4>
+                    <p>Help us build the compatibility database by testing games and reporting results!</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 ShayneVi. All projects are free and open-source.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="compatibility.js"></script>
+</body>
+</html>
