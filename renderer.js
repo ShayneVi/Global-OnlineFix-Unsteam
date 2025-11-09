@@ -641,7 +641,8 @@ function showUnfixSuccess(result) {
     </div>
     <div class="result-details-item" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ccc;">
       <p>✓ The game has been restored to its original state.</p>
-      <p>You can now launch the game normally through Steam.</p>
+      <p><strong style="color: #e74c3c;">⚠️ IMPORTANT: Close Steam completely and reopen it</strong></p>
+      <p>After restarting Steam, you can launch the game normally.</p>
     </div>
   `;
 }
