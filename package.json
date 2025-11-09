@@ -39,6 +39,7 @@
       "styles.css",
       "4310811.png",
       "goldberg_dlls/**/*",
+      "steamless/**/*",
       "package.json",
       "node_modules/**/*"
     ],
