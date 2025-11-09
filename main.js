@@ -459,9 +459,20 @@ function deleteFixState(gameFolder) {
 
 // Modify Steam launch options
 async function modifySteamLaunchOptions(appId, loaderPath) {
+  console.log('\n╔══════════════════════════════════════════════════════════╗');
+  console.log('║  INSIDE modifySteamLaunchOptions FUNCTION               ║');
+  console.log('╚══════════════════════════════════════════════════════════╝');
+  console.log('Function called with:');
+  console.log('  - AppID:', appId);
+  console.log('  - Loader Path:', loaderPath);
+
   try {
+    console.log('\nStep 1: Finding Steam installation...');
     const steamPath = findSteamPath();
+    console.log('Steam Path found:', steamPath);
+
     if (!steamPath) {
+      console.error('ERROR: Steam path is null/undefined!');
       throw new Error('Steam installation not found. Please ensure Steam is installed. If Steam is installed in a custom location, the app may not be able to find it automatically.');
     }
 
@@ -1444,8 +1455,11 @@ ipcMain.handle('install-globalfix', async (event, options) => {
     let launchOptionsSet = false;
     let launchOptionsError = null;
 
+    console.log('\n========== STEP 5: UNSTEAM INSTALLATION ==========');
+    console.log('unsteamEnabled:', unsteamEnabled);
+
     if (unsteamEnabled) {
-      console.log('Installing Unsteam...');
+      console.log('✓ Unsteam is ENABLED, proceeding with installation...');
 
       // Download GlobalFix.zip
       const tempZipPath = path.join(app.getPath('temp'), 'GlobalFix.zip');
@@ -1530,16 +1544,26 @@ ipcMain.handle('install-globalfix', async (event, options) => {
       // Modify Steam launch options to use unsteam_loader64.exe
       const loaderPath = path.join(gameExeDir, 'unsteam_loader64.exe');
 
+      console.log('\n==========================================');
+      console.log('ATTEMPTING TO SET STEAM LAUNCH OPTIONS');
+      console.log('==========================================');
+      console.log('AppID:', appId);
+      console.log('Loader Path:', loaderPath);
+      console.log('About to call modifySteamLaunchOptions...\n');
+
       try {
         const result = await modifySteamLaunchOptions(appId, loaderPath);
         launchOptionsSet = true;
-        console.log(`Steam launch options updated successfully for ${result.modifiedCount} user(s)`);
+        console.log(`\n✅ Steam launch options updated successfully for ${result.modifiedCount} user(s)`);
       } catch (error) {
         launchOptionsError = error.message;
-        console.error('Failed to modify Steam launch options:', error);
+        console.error('\n❌ Failed to modify Steam launch options:', error);
+        console.error('Error stack:', error.stack);
       }
 
-      console.log('Unsteam installation complete!');
+      console.log('✓ Unsteam installation complete!');
+    } else {
+      console.log('✗ Unsteam is NOT enabled - skipping installation');
     }
 
     // Step 6: Install Goldberg (if enabled)
