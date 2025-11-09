@@ -498,6 +498,7 @@ function showSuccess(result, goldbergEnabled) {
       <li>GlobalFix has been installed to your game folder</li>
       <li>Goldberg emulator has been configured with achievements and VLAN support</li>
       <li>steam_settings folder has been created with all necessary files</li>
+      <li>Steam launch options have been configured automatically</li>
       <li><strong>Simply launch your game from Steam normally</strong></li>
       <li>For VLAN play: Connect to your Hamachi/ZeroTier network first</li>
       <li>Each player should have a unique Steam ID (increment the last digits)</li>
@@ -506,9 +507,9 @@ function showSuccess(result, goldbergEnabled) {
     nextSteps = `
       <li>GlobalFix has been installed to your game folder</li>
       <li>The unsteam.ini file has been configured with your game settings</li>
-      <li>The winmm.dll loader has been placed in the necessary locations</li>
+      <li>Steam launch options have been configured automatically</li>
       <li><strong>Simply launch your game from Steam normally</strong></li>
-      <li>No launch options needed - the fix will load automatically!</li>
+      <li>The fix will load automatically through Steam launch options!</li>
     `;
   }
 
