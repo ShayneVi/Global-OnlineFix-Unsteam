@@ -328,8 +328,8 @@ function generateRecommendations(data, container) {
 
   if (hasDedicatedServers) {
     recommendations.push({
-      type: 'error',
-      text: '⚠️ <strong>Unsteam Global Fix will NOT work</strong> - This game uses dedicated servers.'
+      type: 'warning',
+      text: '⚠️ <strong>Unsteam Global Fix MAY NOT work</strong> - This game uses dedicated servers. Please do try and send feedback on <a href="https://github.com/ShayneVi/Global-OnlineFix-Unsteam/issues" target="_blank">GitHub Issues</a>.'
     });
   } else if (hasP2P) {
     recommendations.push({
