@@ -304,12 +304,12 @@ function modifyUnsteamIni(iniPath, exePath, dllPath, appId, steamId, username) {
 
     // Replace Steam ID if provided
     if (steamId && steamId.trim() !== '') {
-      content = content.replace(/^steam_user_id=.*$/m, `steam_user_id=${steamId.trim()}`);
+      content = content.replace(/^steam_id=.*$/m, `steam_id=${steamId.trim()}`);
     }
 
     // Replace username if provided
     if (username && username.trim() !== '') {
-      content = content.replace(/^user_name=.*$/m, `user_name=${username.trim()}`);
+      content = content.replace(/^player_name=.*$/m, `player_name=${username.trim()}`);
     }
 
     fs.writeFileSync(iniPath, content, 'utf-8');

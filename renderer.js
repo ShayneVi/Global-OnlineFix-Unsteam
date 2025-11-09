@@ -135,6 +135,15 @@ async function fetchAndDisplayGameInfo(appId) {
   const gameInfoSection = document.getElementById('gameInfoSection');
   const gameInfoLoading = document.getElementById('gameInfoLoading');
   const gameInfoContent = document.getElementById('gameInfoContent');
+  const gameInfoTitle = document.getElementById('gameInfoTitle');
+
+  // Update title with game name if available
+  const gameName = gameSearchInput.value.trim();
+  if (gameName) {
+    gameInfoTitle.textContent = `${gameName} Network Information`;
+  } else {
+    gameInfoTitle.textContent = 'Game Network Information';
+  }
 
   // Show section and loading state
   gameInfoSection.classList.remove('hidden');
@@ -701,7 +710,7 @@ async function handleUnfix() {
   }
 
   // Confirm with user
-  if (!confirm('This will remove all GlobalFix and Goldberg modifications from the game. Continue?')) {
+  if (!confirm('This will remove all Unsteam, Goldberg, and Steamless modifications from the game. Continue?')) {
     return;
   }
 
