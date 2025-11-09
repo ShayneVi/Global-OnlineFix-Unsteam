@@ -1036,7 +1036,9 @@ async function unfixGame(gameFolder) {
     'unsteam64.dll',
     'unsteam.dll',
     'unsteam_loader64.exe',
-    'unsteam_loader32.exe'
+    'unsteam_loader32.exe',
+    'winmm.dll',
+    'winmm64.dll'
   ];
 
   for (const fileName of unsteamFiles) {
@@ -1191,6 +1193,32 @@ ipcMain.handle('install-globalfix', async (event, appId, goldbergOptions) => {
 
     // Cleanup
     fs.unlinkSync(tempZipPath);
+
+    // Step 7.5: Delete winmm.dll files (we're using launch options instead)
+    const winmmFiles = ['winmm.dll', 'winmm64.dll'];
+    for (const winmmFile of winmmFiles) {
+      const winmmPath = path.join(gameExeDir, winmmFile);
+      if (fs.existsSync(winmmPath)) {
+        try {
+          fs.unlinkSync(winmmPath);
+          console.log(`Deleted ${winmmFile} (not needed with launch options method)`);
+        } catch (error) {
+          console.warn(`Failed to delete ${winmmFile}:`, error);
+        }
+      }
+      // Also check and delete from root if exe is in subfolder
+      if (exeInSubfolder) {
+        const rootWinmmPath = path.join(gameFolder, winmmFile);
+        if (fs.existsSync(rootWinmmPath)) {
+          try {
+            fs.unlinkSync(rootWinmmPath);
+            console.log(`Deleted ${winmmFile} from root folder`);
+          } catch (error) {
+            console.warn(`Failed to delete ${winmmFile} from root:`, error);
+          }
+        }
+      }
+    }
 
     // Step 8: Modify Steam launch options to use unsteam_loader64.exe
     const loaderPath = path.join(gameExeDir, 'unsteam_loader64.exe');
