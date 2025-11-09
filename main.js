@@ -256,8 +256,40 @@ async function extractZip(zipPath, destPath) {
   });
 }
 
+// Unpack game executable using Steamless
+async function steamlessUnpack(exePath) {
+  return new Promise((resolve, reject) => {
+    const steamlessExe = path.join(__dirname, 'steamless', 'Steamless.CLI.exe');
+
+    // Check if Steamless exists
+    if (!fs.existsSync(steamlessExe)) {
+      return reject(new Error('Steamless.CLI.exe not found in steamless folder'));
+    }
+
+    const args = ['--quiet', '--recalcchecksum', exePath];
+
+    console.log(`Running Steamless on: ${exePath}`);
+
+    exec(`"${steamlessExe}" ${args.map(arg => `"${arg}"`).join(' ')}`, (error, stdout, stderr) => {
+      if (error) {
+        console.error('Steamless error:', stderr || error.message);
+        return reject(new Error(`Steamless unpacking failed: ${error.message}`));
+      }
+
+      const unpackedPath = exePath + '.unpacked.exe';
+
+      if (!fs.existsSync(unpackedPath)) {
+        return reject(new Error('Steamless did not create unpacked file. Game may not have SteamStub protection.'));
+      }
+
+      console.log('Steamless unpacking completed successfully');
+      resolve(unpackedPath);
+    });
+  });
+}
+
 // Modify unsteam.ini - preserve original format and comments
-function modifyUnsteamIni(iniPath, exePath, dllPath, appId) {
+function modifyUnsteamIni(iniPath, exePath, dllPath, appId, steamId, username) {
   try {
     let content = fs.readFileSync(iniPath, 'utf-8');
 
@@ -269,6 +301,16 @@ function modifyUnsteamIni(iniPath, exePath, dllPath, appId) {
 
     // Replace real_app_id in [game] section
     content = content.replace(/^real_app_id=.*$/m, `real_app_id=${appId}`);
+
+    // Replace Steam ID if provided
+    if (steamId && steamId.trim() !== '') {
+      content = content.replace(/^steam_id=.*$/m, `steam_id=${steamId.trim()}`);
+    }
+
+    // Replace username if provided
+    if (username && username.trim() !== '') {
+      content = content.replace(/^player_name=.*$/m, `player_name=${username.trim()}`);
+    }
 
     fs.writeFileSync(iniPath, content, 'utf-8');
     return true;
@@ -324,6 +366,55 @@ async function removeSteamLaunchOptions(appId) {
     return modified;
   } catch (error) {
     console.error('Error removing launch options:', error);
+    return false;
+  }
+}
+
+// Save fix state to file for tracking what was installed
+function saveFixState(gameFolder, state) {
+  try {
+    const statePath = path.join(gameFolder, '.globalfix-state.json');
+    const stateData = {
+      ...state,
+      timestamp: new Date().toISOString()
+    };
+    fs.writeFileSync(statePath, JSON.stringify(stateData, null, 2), 'utf-8');
+    console.log('Fix state saved:', stateData);
+    return true;
+  } catch (error) {
+    console.error('Error saving fix state:', error);
+    return false;
+  }
+}
+
+// Load fix state from file
+function loadFixState(gameFolder) {
+  try {
+    const statePath = path.join(gameFolder, '.globalfix-state.json');
+    if (!fs.existsSync(statePath)) {
+      return null;
+    }
+    const content = fs.readFileSync(statePath, 'utf-8');
+    const state = JSON.parse(content);
+    console.log('Fix state loaded:', state);
+    return state;
+  } catch (error) {
+    console.error('Error loading fix state:', error);
+    return null;
+  }
+}
+
+// Delete fix state file
+function deleteFixState(gameFolder) {
+  try {
+    const statePath = path.join(gameFolder, '.globalfix-state.json');
+    if (fs.existsSync(statePath)) {
+      fs.unlinkSync(statePath);
+      console.log('Fix state deleted');
+    }
+    return true;
+  } catch (error) {
+    console.error('Error deleting fix state:', error);
     return false;
   }
 }
@@ -1092,33 +1183,59 @@ ipcMain.handle('unfix-game', async (event, appId) => {
       return { success: false, error: `Game with AppID ${appId} not found in any Steam library` };
     }
 
-    // Step 4: Remove Steam launch options
-    try {
-      const removed = await removeSteamLaunchOptions(appId);
-      if (removed) {
-        console.log('Steam launch options removed successfully');
+    // Step 4: Load fix state to determine what was installed
+    const fixState = loadFixState(gameFolder);
+    const removedItems = [];
+
+    // Step 5: Restore Steamless backup (if it was used)
+    if (fixState && fixState.steamlessEnabled) {
+      try {
+        const gameExeFullPath = findGameExe(gameFolder);
+        if (gameExeFullPath) {
+          const backupPath = gameExeFullPath + '.bak';
+          if (fs.existsSync(backupPath)) {
+            // Delete current exe (unpacked version)
+            if (fs.existsSync(gameExeFullPath)) {
+              fs.unlinkSync(gameExeFullPath);
+              console.log('Deleted unpacked exe');
+            }
+            // Restore backup
+            fs.renameSync(backupPath, gameExeFullPath);
+            console.log('Restored original exe from backup');
+            removedItems.push('Restored original game executable');
+          }
+        }
+      } catch (error) {
+        console.error('Error restoring Steamless backup:', error);
       }
-    } catch (error) {
-      console.warn('Failed to remove launch options:', error);
     }
 
-    // Step 5: Unfix the game
-    const result = await unfixGame(gameFolder);
-
-    if (result.success) {
-      return {
-        success: true,
-        gameFolder: gameFolder,
-        removedItems: result.removedItems
-      };
-    } else {
-      return {
-        success: false,
-        error: 'Some errors occurred during unfix',
-        removedItems: result.removedItems,
-        errors: result.errors
-      };
+    // Step 6: Remove Steam launch options (if Unsteam was installed)
+    if (!fixState || fixState.unsteamEnabled) {
+      try {
+        const removed = await removeSteamLaunchOptions(appId);
+        if (removed) {
+          console.log('Steam launch options removed successfully');
+        }
+      } catch (error) {
+        console.warn('Failed to remove launch options:', error);
+      }
     }
+
+    // Step 7: Unfix the game (remove Unsteam/Goldberg files)
+    if (!fixState || fixState.unsteamEnabled || fixState.goldbergEnabled) {
+      const result = await unfixGame(gameFolder);
+      removedItems.push(...result.removedItems);
+    }
+
+    // Step 8: Delete fix state file
+    deleteFixState(gameFolder);
+
+    return {
+      success: true,
+      gameFolder: gameFolder,
+      removedItems: removedItems
+    };
   } catch (error) {
     console.error('Unfix error:', error);
     return { success: false, error: error.message };
@@ -1126,8 +1243,17 @@ ipcMain.handle('unfix-game', async (event, appId) => {
 });
 
 // Main IPC handler
-ipcMain.handle('install-globalfix', async (event, appId, goldbergOptions) => {
+ipcMain.handle('install-globalfix', async (event, options) => {
   try {
+    const { appId, unsteamEnabled, goldbergEnabled, goldbergOptions, steamlessEnabled, steamId, username } = options;
+
+    console.log('Install options:', { appId, unsteamEnabled, goldbergEnabled, steamlessEnabled });
+
+    // Validate at least one tool is selected
+    if (!unsteamEnabled && !goldbergEnabled && !steamlessEnabled) {
+      return { success: false, error: 'Please select at least one component to install' };
+    }
+
     // Step 1: Find Steam installation
     const steamPath = findSteamPath();
     if (!steamPath) {
@@ -1144,113 +1270,150 @@ ipcMain.handle('install-globalfix', async (event, appId, goldbergOptions) => {
     }
 
     // Step 4: Find game executable (returns full path)
-    const gameExeFullPath = findGameExe(gameFolder);
+    let gameExeFullPath = findGameExe(gameFolder);
     if (!gameExeFullPath) {
       return { success: false, error: 'Could not find game executable' };
     }
 
     // Extract the directory containing the exe and the exe filename
-    const gameExeDir = path.dirname(gameExeFullPath);
-    const gameExeName = path.basename(gameExeFullPath);
+    let gameExeDir = path.dirname(gameExeFullPath);
+    let gameExeName = path.basename(gameExeFullPath);
 
-    // Step 5: Download GlobalFix.zip
-    const tempZipPath = path.join(app.getPath('temp'), 'GlobalFix.zip');
-    await downloadGlobalFix(tempZipPath);
+    // Step 4.5: Steamless unpacking (if enabled)
+    let steamlessApplied = false;
+    if (steamlessEnabled) {
+      try {
+        console.log('Starting Steamless unpacking...');
+        const unpackedPath = await steamlessUnpack(gameExeFullPath);
 
-    // Step 6: Extract to the directory containing the game exe
-    await extractZip(tempZipPath, gameExeDir);
-
-    // Step 7: Handle unsteam.ini placement and configuration
-    // Check if exe is in a subdirectory or in the root
-    const exeInSubfolder = path.normalize(gameExeDir) !== path.normalize(gameFolder);
-
-    let finalIniPath;
-    let exePathForIni;
-    let dllPathForIni;
-
-    if (exeInSubfolder) {
-      // Exe is in a subfolder - need ini in BOTH locations with full paths
-      const extractedIniPath = path.join(gameExeDir, 'unsteam.ini');
-      const rootIniPath = path.join(gameFolder, 'unsteam.ini');
-
-      if (!fs.existsSync(extractedIniPath)) {
-        return { success: false, error: 'unsteam.ini not found after extraction' };
-      }
-
-      // Copy unsteam.ini to game root (keep original in exe folder too)
-      fs.copyFileSync(extractedIniPath, rootIniPath);
-
-      // Use full paths for exe and dll
-      exePathForIni = gameExeFullPath;
-      dllPathForIni = path.join(gameExeDir, 'unsteam64.dll');
-
-      // Modify BOTH copies of unsteam.ini with full paths
-      modifyUnsteamIni(extractedIniPath, exePathForIni, dllPathForIni, appId); // In exe folder
-      modifyUnsteamIni(rootIniPath, exePathForIni, dllPathForIni, appId);      // In root folder
-
-      finalIniPath = rootIniPath; // For logging purposes
-    } else {
-      // Exe is in root - only one ini needed, use filenames only
-      finalIniPath = path.join(gameExeDir, 'unsteam.ini');
-
-      if (!fs.existsSync(finalIniPath)) {
-        return { success: false, error: 'unsteam.ini not found after extraction' };
-      }
-
-      // Use just filenames
-      exePathForIni = gameExeName;
-      dllPathForIni = 'unsteam64.dll';
-
-      // Modify the single unsteam.ini
-      modifyUnsteamIni(finalIniPath, exePathForIni, dllPathForIni, appId);
-    }
-
-    // Cleanup
-    fs.unlinkSync(tempZipPath);
-
-    // Step 7.5: Delete winmm.dll files (we're using launch options instead)
-    const winmmFiles = ['winmm.dll', 'winmm64.dll'];
-    for (const winmmFile of winmmFiles) {
-      const winmmPath = path.join(gameExeDir, winmmFile);
-      if (fs.existsSync(winmmPath)) {
-        try {
-          fs.unlinkSync(winmmPath);
-          console.log(`Deleted ${winmmFile} (not needed with launch options method)`);
-        } catch (error) {
-          console.warn(`Failed to delete ${winmmFile}:`, error);
+        // Backup original exe
+        const backupPath = gameExeFullPath + '.bak';
+        if (!fs.existsSync(backupPath)) {
+          fs.renameSync(gameExeFullPath, backupPath);
+          console.log(`Backed up original exe to: ${backupPath}`);
+        } else {
+          // Backup already exists, just delete the original
+          fs.unlinkSync(gameExeFullPath);
+          console.log('Backup already exists, deleted original exe');
         }
-      }
-      // Also check and delete from root if exe is in subfolder
-      if (exeInSubfolder) {
-        const rootWinmmPath = path.join(gameFolder, winmmFile);
-        if (fs.existsSync(rootWinmmPath)) {
-          try {
-            fs.unlinkSync(rootWinmmPath);
-            console.log(`Deleted ${winmmFile} from root folder`);
-          } catch (error) {
-            console.warn(`Failed to delete ${winmmFile} from root:`, error);
-          }
-        }
+
+        // Rename unpacked exe to original name
+        fs.renameSync(unpackedPath, gameExeFullPath);
+        console.log(`Renamed unpacked exe to: ${gameExeName}`);
+
+        steamlessApplied = true;
+      } catch (steamlessError) {
+        console.error('Steamless error:', steamlessError);
+        // Don't fail - Steamless is optional, continue with other tools
+        console.log('Continuing without Steamless...');
       }
     }
 
-    // Step 8: Modify Steam launch options to use unsteam_loader64.exe
-    const loaderPath = path.join(gameExeDir, 'unsteam_loader64.exe');
+    // Step 5: Install Unsteam (if enabled)
     let launchOptionsSet = false;
     let launchOptionsError = null;
 
-    try {
-      await modifySteamLaunchOptions(appId, loaderPath);
-      launchOptionsSet = true;
-      console.log('Steam launch options updated successfully');
-    } catch (error) {
-      launchOptionsError = error.message;
-      console.error('Failed to modify Steam launch options:', error);
+    if (unsteamEnabled) {
+      console.log('Installing Unsteam...');
+
+      // Download GlobalFix.zip
+      const tempZipPath = path.join(app.getPath('temp'), 'GlobalFix.zip');
+      await downloadGlobalFix(tempZipPath);
+
+      // Extract to the directory containing the game exe
+      await extractZip(tempZipPath, gameExeDir);
+
+      // Handle unsteam.ini placement and configuration
+      const exeInSubfolder = path.normalize(gameExeDir) !== path.normalize(gameFolder);
+
+      let finalIniPath;
+      let exePathForIni;
+      let dllPathForIni;
+
+      if (exeInSubfolder) {
+        // Exe is in a subfolder - need ini in BOTH locations with full paths
+        const extractedIniPath = path.join(gameExeDir, 'unsteam.ini');
+        const rootIniPath = path.join(gameFolder, 'unsteam.ini');
+
+        if (!fs.existsSync(extractedIniPath)) {
+          return { success: false, error: 'unsteam.ini not found after extraction' };
+        }
+
+        // Copy unsteam.ini to game root (keep original in exe folder too)
+        fs.copyFileSync(extractedIniPath, rootIniPath);
+
+        // Use full paths for exe and dll
+        exePathForIni = gameExeFullPath;
+        dllPathForIni = path.join(gameExeDir, 'unsteam64.dll');
+
+        // Modify BOTH copies of unsteam.ini with full paths
+        modifyUnsteamIni(extractedIniPath, exePathForIni, dllPathForIni, appId, steamId, username);
+        modifyUnsteamIni(rootIniPath, exePathForIni, dllPathForIni, appId, steamId, username);
+
+        finalIniPath = rootIniPath;
+      } else {
+        // Exe is in root - only one ini needed, use filenames only
+        finalIniPath = path.join(gameExeDir, 'unsteam.ini');
+
+        if (!fs.existsSync(finalIniPath)) {
+          return { success: false, error: 'unsteam.ini not found after extraction' };
+        }
+
+        // Use just filenames
+        exePathForIni = gameExeName;
+        dllPathForIni = 'unsteam64.dll';
+
+        // Modify the single unsteam.ini
+        modifyUnsteamIni(finalIniPath, exePathForIni, dllPathForIni, appId, steamId, username);
+      }
+
+      // Cleanup
+      fs.unlinkSync(tempZipPath);
+
+      // Delete winmm.dll files (we're using launch options instead)
+      const winmmFiles = ['winmm.dll', 'winmm64.dll'];
+      for (const winmmFile of winmmFiles) {
+        const winmmPath = path.join(gameExeDir, winmmFile);
+        if (fs.existsSync(winmmPath)) {
+          try {
+            fs.unlinkSync(winmmPath);
+            console.log(`Deleted ${winmmFile} (not needed with launch options method)`);
+          } catch (error) {
+            console.warn(`Failed to delete ${winmmFile}:`, error);
+          }
+        }
+        // Also check and delete from root if exe is in subfolder
+        if (exeInSubfolder) {
+          const rootWinmmPath = path.join(gameFolder, winmmFile);
+          if (fs.existsSync(rootWinmmPath)) {
+            try {
+              fs.unlinkSync(rootWinmmPath);
+              console.log(`Deleted ${winmmFile} from root folder`);
+            } catch (error) {
+              console.warn(`Failed to delete ${winmmFile} from root:`, error);
+            }
+          }
+        }
+      }
+
+      // Modify Steam launch options to use unsteam_loader64.exe
+      const loaderPath = path.join(gameExeDir, 'unsteam_loader64.exe');
+
+      try {
+        await modifySteamLaunchOptions(appId, loaderPath);
+        launchOptionsSet = true;
+        console.log('Steam launch options updated successfully');
+      } catch (error) {
+        launchOptionsError = error.message;
+        console.error('Failed to modify Steam launch options:', error);
+      }
+
+      console.log('Unsteam installation complete!');
     }
 
-    // Step 9: Install Goldberg if requested
+    // Step 6: Install Goldberg (if enabled)
     let goldbergResult = null;
-    if (goldbergOptions) {
+    if (goldbergEnabled && goldbergOptions) {
       try {
         console.log('Installing Goldberg emulator...');
         goldbergResult = await installGoldberg(gameFolder, appId, goldbergOptions);
@@ -1260,15 +1423,26 @@ ipcMain.handle('install-globalfix', async (event, appId, goldbergOptions) => {
         // Don't fail the whole installation if Goldberg fails
         return {
           success: false,
-          error: `GlobalFix installed successfully, but Goldberg installation failed: ${goldbergError.message}`
+          error: `Fix applied, but Goldberg installation failed: ${goldbergError.message}`
         };
       }
     }
+
+    // Step 7: Save fix state
+    const fixState = {
+      appId: appId,
+      steamlessEnabled: steamlessApplied,
+      unsteamEnabled: unsteamEnabled,
+      goldbergEnabled: goldbergEnabled && goldbergResult !== null
+    };
+    saveFixState(gameFolder, fixState);
 
     return {
       success: true,
       gameFolder: gameExeDir,
       gameExe: gameExeName,
+      steamless: steamlessApplied,
+      unsteam: unsteamEnabled,
       launchOptionsSet: launchOptionsSet,
       launchOptionsError: launchOptionsError,
       goldberg: goldbergResult ? {

@@ -37,7 +37,7 @@
 
         <!-- Game Info Section -->
         <div id="gameInfoSection" class="game-info-section hidden">
-          <h3>Game Network Information</h3>
+          <h3 id="gameInfoTitle">Game Network Information</h3>
 
           <div id="gameInfoLoading" class="game-info-loading hidden">
             <div class="spinner-small"></div>
@@ -107,18 +107,63 @@
         </div>
 
         <div class="options-section">
+          <h3>Select Components:</h3>
+
+          <!-- Unsteam Checkbox -->
+          <div class="checkbox-container">
+            <input type="checkbox" id="unsteamCheckbox">
+            <label for="unsteamCheckbox" class="checkbox-label">
+              Unsteam (Global Online Fix)
+            </label>
+            <button class="info-btn" data-tooltip="unsteam" title="Click for info">ℹ️</button>
+          </div>
+          <div class="tooltip-content hidden" id="tooltip-unsteam">
+            <strong>Online Fix - Bypasses Steam's online requirement</strong>
+            <ul>
+              <li>Enables online play for most games using steam servers</li>
+              <li>Enables LAN play without Steam connection</li>
+              <li>Configurable Steam ID and username</li>
+            </ul>
+          </div>
+
+          <div id="unsteamOptions" class="unsteam-options hidden">
+            <label for="unsteamSteamId">Steam ID (optional):</label>
+            <input
+              type="text"
+              id="unsteamSteamId"
+              placeholder="Leave blank for default"
+              autocomplete="off"
+            >
+
+            <label for="unsteamUsername">Username (optional):</label>
+            <input
+              type="text"
+              id="unsteamUsername"
+              placeholder="Leave blank for default"
+              autocomplete="off"
+            >
+            <small class="input-help">Leave fields blank to use defaults from unsteam.ini</small>
+          </div>
+
+          <!-- Goldberg Checkbox -->
           <div class="checkbox-container">
             <input type="checkbox" id="goldbergCheckbox">
             <label for="goldbergCheckbox" class="checkbox-label">
-              Also install Goldberg Emulator (for VLAN play and achievements)
+              Goldberg Steam Emulator
             </label>
+            <button class="info-btn" data-tooltip="goldberg" title="Click for info">ℹ️</button>
+          </div>
+          <div class="tooltip-content hidden" id="tooltip-goldberg">
+            <strong>Steam Emulator - Replaces Steamworks API</strong>
+            <ul>
+              <li>Unlocks achievements offline</li>
+              <li>Saves game progress locally</li>
+              <li>Requires Steam API key for achievements</li>
+              <li>Adds VLAN compatibility (May need connect lobby tool. Check Goldberg github)</li>
+            </ul>
           </div>
 
           <div id="goldbergOptions" class="goldberg-options hidden">
-            <div class="goldberg-info">
-              <p>Goldberg enables VLAN multiplayer (via Hamachi/ZeroTier), offline play, and achievement tracking.</p>
-            </div>
-
             <label for="accountName">Account Name:</label>
             <input
               type="text"
@@ -180,11 +225,30 @@
             >
             <small class="input-help">Optional - only needed to download achievements</small>
           </div>
+
+          <!-- Steamless Checkbox -->
+          <div class="checkbox-container">
+            <input type="checkbox" id="steamlessCheckbox">
+            <label for="steamlessCheckbox" class="checkbox-label">
+              Steamless DRM Removal
+            </label>
+            <button class="info-btn" data-tooltip="steamless" title="Click for info">ℹ️</button>
+          </div>
+          <div class="tooltip-content hidden" id="tooltip-steamless">
+            <strong>SteamStub DRM Remover by atom0s</strong>
+            <ul>
+              <li>Removes exe-level DRM protection</li>
+              <li>Only needed if game fails to launch with other tools</li>
+              <li>Not all games require this</li>
+              <li>May improve compatibility with some Steam games</li>
+            </ul>
+            <small style="opacity: 0.7;">Credit: atom0s</small>
+          </div>
         </div>
 
         <div class="button-group">
-          <button id="installBtn" class="btn-primary">Install GlobalFix</button>
-          <button id="unfixBtn" class="btn-secondary">Unfix Game</button>
+          <button id="installBtn" class="btn-primary">Apply Fix</button>
+          <button id="unfixBtn" class="btn-secondary">Remove Fix</button>
         </div>
       </div>
 

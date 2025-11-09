@@ -224,6 +224,72 @@ select {
   font-weight: bold;
 }
 
+/* Info button and tooltips */
+.info-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.info-btn:hover {
+  background: #5568d3;
+}
+
+.tooltip-content {
+  background: #f5f7fa;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 8px;
+  margin-bottom: 10px;
+  margin-left: 30px;
+  font-size: 0.9em;
+  line-height: 1.5;
+  animation: fadeIn 0.2s;
+}
+
+.tooltip-content strong {
+  color: #667eea;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.tooltip-content ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #555;
+}
+
+.tooltip-content li {
+  margin-bottom: 4px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Unsteam options (reuse goldberg styles) */
+.unsteam-options {
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  border: 2px solid #667eea;
+  margin-top: 15px;
+  margin-bottom: 20px;
+}
+
 .button-group {
   display: flex;
   gap: 15px;

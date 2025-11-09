@@ -11,6 +11,12 @@ const resultSection = document.getElementById('result');
 const resultTitle = document.getElementById('resultTitle');
 const resultDetails = document.getElementById('resultDetails');
 
+// Unsteam options elements
+const unsteamCheckbox = document.getElementById('unsteamCheckbox');
+const unsteamOptions = document.getElementById('unsteamOptions');
+const unsteamSteamIdInput = document.getElementById('unsteamSteamId');
+const unsteamUsernameInput = document.getElementById('unsteamUsername');
+
 // Goldberg options elements
 const goldbergCheckbox = document.getElementById('goldbergCheckbox');
 const goldbergOptions = document.getElementById('goldbergOptions');
@@ -18,6 +24,9 @@ const accountNameInput = document.getElementById('accountName');
 const steamIdInput = document.getElementById('steamId');
 const languageSelect = document.getElementById('language');
 const steamApiKeyInput = document.getElementById('steamApiKey');
+
+// Steamless options elements
+const steamlessCheckbox = document.getElementById('steamlessCheckbox');
 
 // Steam apps list
 let steamApps = [];
@@ -126,6 +135,15 @@ async function fetchAndDisplayGameInfo(appId) {
   const gameInfoSection = document.getElementById('gameInfoSection');
   const gameInfoLoading = document.getElementById('gameInfoLoading');
   const gameInfoContent = document.getElementById('gameInfoContent');
+  const gameInfoTitle = document.getElementById('gameInfoTitle');
+
+  // Update title with game name if available
+  const gameName = gameSearchInput.value.trim();
+  if (gameName) {
+    gameInfoTitle.textContent = `${gameName} Network Information`;
+  } else {
+    gameInfoTitle.textContent = 'Game Network Information';
+  }
 
   // Show section and loading state
   gameInfoSection.classList.remove('hidden');
@@ -402,12 +420,67 @@ gameSearchInput.addEventListener('input', () => {
   }
 });
 
+// Unsteam checkbox toggle
+unsteamCheckbox.addEventListener('change', () => {
+  if (unsteamCheckbox.checked) {
+    unsteamOptions.classList.remove('hidden');
+  } else {
+    unsteamOptions.classList.add('hidden');
+  }
+});
+
 // Goldberg checkbox toggle
 goldbergCheckbox.addEventListener('change', () => {
   if (goldbergCheckbox.checked) {
     goldbergOptions.classList.remove('hidden');
   } else {
     goldbergOptions.classList.add('hidden');
+  }
+});
+
+// Info button tooltips
+document.querySelectorAll('.info-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    const tooltipId = 'tooltip-' + btn.getAttribute('data-tooltip');
+    const tooltip = document.getElementById(tooltipId);
+    if (tooltip) {
+      // Hide all other tooltips
+      document.querySelectorAll('.tooltip-content').forEach(t => {
+        if (t.id !== tooltipId) {
+          t.classList.add('hidden');
+        }
+      });
+      // Toggle this tooltip
+      tooltip.classList.toggle('hidden');
+    }
+  });
+});
+
+// Close tooltips when clicking elsewhere
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.info-btn') && !e.target.closest('.tooltip-content')) {
+    document.querySelectorAll('.tooltip-content').forEach(t => {
+      t.classList.add('hidden');
+    });
+  }
+});
+
+// Load saved Steam API key from localStorage
+window.addEventListener('DOMContentLoaded', () => {
+  const savedApiKey = localStorage.getItem('steamApiKey');
+  if (savedApiKey) {
+    steamApiKeyInput.value = savedApiKey;
+  }
+});
+
+// Save Steam API key to localStorage when it changes
+steamApiKeyInput.addEventListener('input', () => {
+  const apiKey = steamApiKeyInput.value.trim();
+  if (apiKey) {
+    localStorage.setItem('steamApiKey', apiKey);
+  } else {
+    localStorage.removeItem('steamApiKey');
   }
 });
 
@@ -454,10 +527,19 @@ async function handleInstall() {
     return;
   }
 
-  // Check if Goldberg is enabled
+  // Check which components are enabled
+  const unsteamEnabled = unsteamCheckbox.checked;
   const goldbergEnabled = goldbergCheckbox.checked;
-  let goldbergOptions = null;
+  const steamlessEnabled = steamlessCheckbox.checked;
 
+  // Validate at least one component is selected
+  if (!unsteamEnabled && !goldbergEnabled && !steamlessEnabled) {
+    showError('No Components Selected', 'Please select at least one component to install (Unsteam, Goldberg, or Steamless).');
+    return;
+  }
+
+  // Collect Goldberg options (if enabled)
+  let goldbergOptions = null;
   if (goldbergEnabled) {
     goldbergOptions = {
       accountName: accountNameInput.value.trim() || 'Goldberg',
@@ -467,22 +549,44 @@ async function handleInstall() {
     };
   }
 
-  // Disable input during installation
+  // Collect all options
+  const options = {
+    appId,
+    unsteamEnabled,
+    goldbergEnabled,
+    goldbergOptions,
+    steamlessEnabled,
+    steamId: unsteamSteamIdInput.value.trim() || null,
+    username: unsteamUsernameInput.value.trim() || null
+  };
+
+  // Disable inputs during installation
   appIdInput.disabled = true;
+  gameSearchInput.disabled = true;
   installBtn.disabled = true;
+  unfixBtn.disabled = true;
+  unsteamCheckbox.disabled = true;
   goldbergCheckbox.disabled = true;
+  steamlessCheckbox.disabled = true;
+
+  // Build status message
+  const components = [];
+  if (unsteamEnabled) components.push('Unsteam');
+  if (goldbergEnabled) components.push('Goldberg');
+  if (steamlessEnabled) components.push('Steamless');
+  const statusMsg = `Applying fix with: ${components.join(', ')}...`;
 
   // Show status
-  showStatus(goldbergEnabled ? 'Installing GlobalFix and Goldberg Emulator...' : 'Installing GlobalFix...');
+  showStatus(statusMsg);
 
   try {
-    // Call the main process to install GlobalFix (and optionally Goldberg)
-    const result = await window.electronAPI.installGlobalFix(appId, goldbergOptions);
+    // Call the main process to apply the fix
+    const result = await window.electronAPI.installGlobalFix(options);
 
     hideStatus();
 
     if (result.success) {
-      showSuccess(result, goldbergEnabled);
+      showSuccess(result, unsteamEnabled, goldbergEnabled, steamlessEnabled);
     } else {
       showError('Installation Failed', result.error);
     }
@@ -490,12 +594,14 @@ async function handleInstall() {
     hideStatus();
     showError('Installation Error', error.message || 'An unexpected error occurred.');
   } finally {
-    // Re-enable input
+    // Re-enable inputs
     gameSearchInput.disabled = false;
     appIdInput.disabled = false;
     installBtn.disabled = false;
     unfixBtn.disabled = false;
+    unsteamCheckbox.disabled = false;
     goldbergCheckbox.disabled = false;
+    steamlessCheckbox.disabled = false;
   }
 }
 
@@ -510,32 +616,46 @@ function hideStatus() {
   statusSection.classList.add('hidden');
 }
 
-function showSuccess(result, goldbergEnabled) {
+function showSuccess(result, unsteamEnabled, goldbergEnabled, steamlessEnabled) {
   resultSection.classList.remove('hidden', 'error');
   resultSection.classList.add('success');
-  resultTitle.textContent = '✓ Installation Successful!';
+  resultTitle.textContent = '✓ Fix Applied Successfully!';
 
+  // Build component list
+  const components = [];
+  if (steamlessEnabled && result.steamless) components.push('Steamless DRM removal');
+  if (unsteamEnabled && result.unsteam) components.push('Unsteam online fix');
+  if (goldbergEnabled && result.goldberg) components.push('Goldberg emulator');
+
+  // Build next steps
   let nextSteps = '';
+
+  if (steamlessEnabled && result.steamless) {
+    nextSteps += '<li>Game executable has been unpacked (SteamStub DRM removed)</li>';
+  }
+
+  if (unsteamEnabled && result.unsteam) {
+    nextSteps += '<li>Unsteam has been installed to your game folder</li>';
+    nextSteps += '<li>The unsteam.ini file has been configured with your game settings</li>';
+    nextSteps += '<li>Steam launch options have been configured automatically</li>';
+  }
+
+  if (goldbergEnabled && result.goldberg) {
+    nextSteps += '<li>Goldberg emulator has been configured with achievements and VLAN support</li>';
+    nextSteps += '<li>steam_settings folder has been created with all necessary files</li>';
+    if (result.goldberg.achievementsCount > 0) {
+      nextSteps += `<li>Downloaded ${result.goldberg.achievementsCount} achievements</li>`;
+    }
+  }
+
+  if (unsteamEnabled || goldbergEnabled) {
+    nextSteps += '<li><strong style="color: #e74c3c;">⚠️ IMPORTANT: Close Steam completely and reopen it</strong></li>';
+    nextSteps += '<li>After restarting Steam, launch your game normally</li>';
+  }
+
   if (goldbergEnabled) {
-    nextSteps = `
-      <li>GlobalFix has been installed to your game folder</li>
-      <li>Goldberg emulator has been configured with achievements and VLAN support</li>
-      <li>steam_settings folder has been created with all necessary files</li>
-      <li>Steam launch options have been configured automatically</li>
-      <li><strong style="color: #e74c3c;">⚠️ IMPORTANT: Close Steam completely and reopen it</strong></li>
-      <li>After restarting Steam, launch your game normally</li>
-      <li>For VLAN play: Connect to your Hamachi/ZeroTier network first</li>
-      <li>Each player should have a unique Steam ID (increment the last digits)</li>
-    `;
-  } else {
-    nextSteps = `
-      <li>GlobalFix has been installed to your game folder</li>
-      <li>The unsteam.ini file has been configured with your game settings</li>
-      <li>Steam launch options have been configured automatically</li>
-      <li><strong style="color: #e74c3c;">⚠️ IMPORTANT: Close Steam completely and reopen it</strong></li>
-      <li>After restarting Steam, launch your game normally</li>
-      <li>The fix will load automatically through Steam launch options!</li>
-    `;
+    nextSteps += '<li>For VLAN play: Connect to your Hamachi/ZeroTier network first</li>';
+    nextSteps += '<li>Each player should have a unique Steam ID (increment the last digits)</li>';
   }
 
   resultDetails.innerHTML = `
@@ -545,6 +665,11 @@ function showSuccess(result, goldbergEnabled) {
     <div class="result-details-item">
       <strong>Game Executable:</strong> ${escapeHtml(result.gameExe)}
     </div>
+    ${components.length > 0 ? `
+      <div class="result-details-item">
+        <strong>Components Installed:</strong> ${components.join(', ')}
+      </div>
+    ` : ''}
     <div class="result-details-item" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ccc;">
       <strong>Next Steps:</strong>
       <ol style="margin-left: 20px; margin-top: 10px; line-height: 1.6;">
@@ -585,18 +710,21 @@ async function handleUnfix() {
   }
 
   // Confirm with user
-  if (!confirm('This will remove all GlobalFix and Goldberg modifications from the game. Continue?')) {
+  if (!confirm('This will remove all Unsteam, Goldberg, and Steamless modifications from the game. Continue?')) {
     return;
   }
 
-  // Disable input during unfix
+  // Disable inputs during unfix
   appIdInput.disabled = true;
+  gameSearchInput.disabled = true;
   installBtn.disabled = true;
   unfixBtn.disabled = true;
+  unsteamCheckbox.disabled = true;
   goldbergCheckbox.disabled = true;
+  steamlessCheckbox.disabled = true;
 
   // Show status
-  showStatus('Unfixing game...');
+  showStatus('Removing fix...');
 
   try {
     // Call the main process to unfix the game
@@ -613,12 +741,14 @@ async function handleUnfix() {
     hideStatus();
     showError('Unfix Error', error.message || 'An unexpected error occurred.');
   } finally {
-    // Re-enable input
+    // Re-enable inputs
     gameSearchInput.disabled = false;
     appIdInput.disabled = false;
     installBtn.disabled = false;
     unfixBtn.disabled = false;
+    unsteamCheckbox.disabled = false;
     goldbergCheckbox.disabled = false;
+    steamlessCheckbox.disabled = false;
   }
 }
 
