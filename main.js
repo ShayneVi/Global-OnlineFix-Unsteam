@@ -51,33 +51,48 @@ app.on('activate', () => {
 // Helper function to find Steam installation path
 function findSteamPath() {
   // Method 1: Check Windows Registry (most reliable)
-  try {
-    const { execSync } = require('child_process');
-    // Query registry for Steam installation path
-    const regQuery = 'reg query "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Valve\\Steam" /v InstallPath';
-    const output = execSync(regQuery, { encoding: 'utf-8' });
-    const match = output.match(/InstallPath\s+REG_SZ\s+(.+)/);
+  const { execSync } = require('child_process');
 
-    if (match && match[1]) {
-      const steamPath = match[1].trim();
-      if (fs.existsSync(steamPath)) {
-        console.log(`Found Steam via Registry: ${steamPath}`);
-        return steamPath;
+  // Try multiple registry keys (64-bit and 32-bit)
+  const registryKeys = [
+    'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Valve\\Steam',
+    'HKEY_LOCAL_MACHINE\\SOFTWARE\\Valve\\Steam',
+    'HKEY_CURRENT_USER\\SOFTWARE\\Valve\\Steam'
+  ];
+
+  for (const regKey of registryKeys) {
+    try {
+      const regQuery = `reg query "${regKey}" /v InstallPath`;
+      const output = execSync(regQuery, { encoding: 'utf-8' });
+      const match = output.match(/InstallPath\s+REG_SZ\s+(.+)/);
+
+      if (match && match[1]) {
+        const steamPath = match[1].trim();
+        if (fs.existsSync(steamPath) && fs.existsSync(path.join(steamPath, 'steam.exe'))) {
+          console.log(`Found Steam via Registry (${regKey}): ${steamPath}`);
+          return steamPath;
+        }
       }
+    } catch (error) {
+      // Continue to next registry key
+      continue;
     }
-  } catch (error) {
-    console.log('Registry lookup failed, trying other methods...');
   }
+
+  console.log('Registry lookup failed for all keys, trying other methods...');
 
   // Method 2: Check all drives (A-Z) for Steam installation
   const drives = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-  const steamFolderNames = ['Steam', 'steam'];
   const commonLocations = [
     'Program Files (x86)\\Steam',
     'Program Files\\Steam',
     'Steam',
     'Games\\Steam',
-    'SteamLibrary'
+    'SteamLibrary',
+    'Valve\\Steam',
+    'Steam Games\\Steam',
+    'Program Files (x86)\\Valve\\Steam',
+    'Program Files\\Valve\\Steam'
   ];
 
   for (const drive of drives) {
@@ -433,13 +448,23 @@ async function modifySteamLaunchOptions(appId, loaderPath) {
   try {
     const steamPath = findSteamPath();
     if (!steamPath) {
-      throw new Error('Steam path not found');
+      throw new Error('Steam installation not found. Please ensure Steam is installed. If Steam is installed in a custom location, the app may not be able to find it automatically.');
     }
 
     const userDataPath = path.join(steamPath, 'userdata');
+
+    if (!fs.existsSync(userDataPath)) {
+      throw new Error('Steam userdata folder not found. Steam may not be configured properly.');
+    }
+
     const users = fs.readdirSync(userDataPath);
 
+    if (users.length === 0) {
+      throw new Error('No Steam users found. Please ensure you have logged into Steam at least once.');
+    }
+
     let modified = false;
+    let foundAppId = false;
 
     for (const user of users) {
       const configPath = path.join(userDataPath, user, 'config', 'localconfig.vdf');
@@ -452,6 +477,7 @@ async function modifySteamLaunchOptions(appId, loaderPath) {
 
         // Check if app ID exists in this config
         if (content.includes(`"${appId}"`)) {
+          foundAppId = true;
           // Find the app section - look for the pattern: "appid"\n\t\t\t{
           const appSectionRegex = new RegExp(`("${appId}"\\s*\\n\\s*\\{)`, 'g');
 
@@ -485,13 +511,17 @@ async function modifySteamLaunchOptions(appId, loaderPath) {
     }
 
     if (!modified) {
-      throw new Error(`Could not find app configuration for AppID ${appId} in Steam config files`);
+      if (!foundAppId) {
+        throw new Error(`Game (AppID ${appId}) has not been launched in Steam yet. Please launch the game at least once, close it, then try applying the fix again. This creates the necessary Steam configuration entry.`);
+      } else {
+        throw new Error(`Could not modify launch options for AppID ${appId}. The game may need to be launched once to create its Steam configuration entry.`);
+      }
     }
 
     return true;
   } catch (error) {
     console.error('Error modifying launch options:', error);
-    return false;
+    throw error; // Re-throw to preserve the error message
   }
 }
 
