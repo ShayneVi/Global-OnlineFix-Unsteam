@@ -3,12 +3,21 @@ const gameSearchInput = document.getElementById('gameSearch');
 const searchDropdown = document.getElementById('searchDropdown');
 const appIdInput = document.getElementById('appId');
 const installBtn = document.getElementById('installBtn');
+const unfixBtn = document.getElementById('unfixBtn');
 const statusSection = document.getElementById('status');
 const statusText = document.getElementById('statusText');
 const spinner = document.getElementById('spinner');
 const resultSection = document.getElementById('result');
 const resultTitle = document.getElementById('resultTitle');
 const resultDetails = document.getElementById('resultDetails');
+
+// Goldberg options elements
+const goldbergCheckbox = document.getElementById('goldbergCheckbox');
+const goldbergOptions = document.getElementById('goldbergOptions');
+const accountNameInput = document.getElementById('accountName');
+const steamIdInput = document.getElementById('steamId');
+const languageSelect = document.getElementById('language');
+const steamApiKeyInput = document.getElementById('steamApiKey');
 
 // Steam apps list
 let steamApps = [];
@@ -90,6 +99,276 @@ function selectGame(appId, gameName) {
   gameSearchInput.value = gameName;
   searchDropdown.classList.add('hidden');
   installBtn.disabled = false;
+  unfixBtn.disabled = false;
+
+  // Fetch and display game info from PCGamingWiki
+  fetchAndDisplayGameInfo(appId);
+}
+
+// Fetch and display game info from PCGamingWiki
+async function fetchAndDisplayGameInfo(appId) {
+  console.log(`[Renderer] Fetching game info for AppID: ${appId}`);
+
+  const gameInfoSection = document.getElementById('gameInfoSection');
+  const gameInfoLoading = document.getElementById('gameInfoLoading');
+  const gameInfoContent = document.getElementById('gameInfoContent');
+
+  // Show section and loading state
+  gameInfoSection.classList.remove('hidden');
+  gameInfoLoading.classList.remove('hidden');
+  gameInfoContent.classList.add('hidden');
+
+  try {
+    const result = await window.electronAPI.fetchPCGamingWikiInfo(appId);
+
+    console.log('[Renderer] Received result:', result);
+
+    gameInfoLoading.classList.add('hidden');
+
+    if (result.success) {
+      console.log('[Renderer] Success! Populating game info');
+      populateGameInfo(result.data);
+      gameInfoContent.classList.remove('hidden');
+    } else {
+      console.log('[Renderer] Failed:', result.error);
+      // Show "No info" state
+      showNoGameInfo();
+    }
+  } catch (error) {
+    console.log('[Renderer] Error:', error);
+    gameInfoLoading.classList.add('hidden');
+    showNoGameInfo();
+  }
+}
+
+// Clean wikitext markup from text
+function cleanWikitext(text) {
+  if (!text) return '';
+
+  let cleaned = text;
+
+  // Remove nested MediaWiki templates like {{...}} using iterative approach
+  // Keep removing until no more templates found
+  let prevLength = 0;
+  while (cleaned.length !== prevLength) {
+    prevLength = cleaned.length;
+    // Remove simple templates first
+    cleaned = cleaned.replace(/\{\{[^{}]*\}\}/g, '');
+  }
+
+  // Remove MediaWiki references like <ref>...</ref> or <ref name="..." />
+  cleaned = cleaned.replace(/<ref[^>]*>.*?<\/ref>/gis, '');
+  cleaned = cleaned.replace(/<ref[^>]*\/>/gi, '');
+  cleaned = cleaned.replace(/<ref[^>]*>/gi, '');
+  cleaned = cleaned.replace(/<\/ref>/gi, '');
+
+  // Convert wiki links [url text] to just the text
+  cleaned = cleaned.replace(/\[https?:\/\/[^\s\]]+\s+([^\]]+)\]/g, '$1');
+  cleaned = cleaned.replace(/\[https?:\/\/[^\]]+\]/g, '');
+
+  // Remove HTML tags
+  cleaned = cleaned.replace(/<br\s*\/?>/gi, ' ');
+  cleaned = cleaned.replace(/<[^>]+>/g, '');
+
+  // Remove any remaining template artifacts
+  cleaned = cleaned.replace(/\{\{/g, '');
+  cleaned = cleaned.replace(/\}\}/g, '');
+  cleaned = cleaned.replace(/\|[a-z\s]+=/gi, '');
+
+  // Clean up multiple spaces and trim
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+
+  return cleaned;
+}
+
+// Populate game info tables
+function populateGameInfo(data) {
+  const multiplayerTableBody = document.getElementById('multiplayerTableBody');
+  const connectionTableBody = document.getElementById('connectionTableBody');
+  const gameRecommendations = document.getElementById('gameRecommendations');
+
+  // Populate multiplayer table
+  const multiplayerRows = [];
+
+  if (data.multiplayer && Object.keys(data.multiplayer).length > 0) {
+    const mp = data.multiplayer;
+
+    // Local Play - show if defined
+    if (mp.localPlay !== undefined) {
+      const details = cleanWikitext(mp.localPlayNotes || mp.localPlayPlayers || '');
+      multiplayerRows.push(createTableRow('Local Play', mp.localPlay, details));
+    }
+
+    // LAN Play - show if defined
+    if (mp.lanPlay !== undefined) {
+      const details = cleanWikitext(mp.lanPlayNotes || mp.lanPlayPlayers || '');
+      multiplayerRows.push(createTableRow('LAN Play', mp.lanPlay, details));
+    }
+
+    // Online Play - show if defined
+    if (mp.onlinePlay !== undefined) {
+      const onlineDetails = [
+        mp.onlinePlayPlayers && `${mp.onlinePlayPlayers} players`,
+        mp.onlinePlayModes,
+        cleanWikitext(mp.onlinePlayNotes || '')
+      ].filter(Boolean).join(', ');
+      multiplayerRows.push(createTableRow('Online Play', mp.onlinePlay, onlineDetails));
+    }
+
+    // Crossplay - show if defined
+    if (mp.crossplay !== undefined) {
+      const crossplayDetails = cleanWikitext([mp.crossplayPlatforms, mp.crossplayNotes].filter(Boolean).join(', '));
+      multiplayerRows.push(createTableRow('Crossplay', mp.crossplay, crossplayDetails));
+    }
+
+    // Asynchronous - show if defined
+    if (mp.asynchronous !== undefined) {
+      multiplayerRows.push(createTableRow('Asynchronous', mp.asynchronous, ''));
+    }
+  }
+
+  if (multiplayerRows.length > 0) {
+    multiplayerTableBody.innerHTML = multiplayerRows.join('');
+  } else {
+    multiplayerTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No info</td></tr>';
+  }
+
+  // Populate connection table - ALWAYS show all connection types
+  const connectionRows = [];
+
+  if (data.connections && Object.keys(data.connections).length > 0) {
+    const conn = data.connections;
+
+    // Always show these connection types (even if empty)
+    connectionRows.push(createTableRow('Matchmaking', conn.matchmaking || '', cleanWikitext(conn.matchmakingNotes || '')));
+    connectionRows.push(createTableRow('P2P', conn.p2p || '', cleanWikitext(conn.p2pNotes || '')));
+    connectionRows.push(createTableRow('Dedicated Servers', conn.dedicated || '', cleanWikitext(conn.dedicatedNotes || '')));
+    connectionRows.push(createTableRow('Self-Hosting', conn.selfHosting || '', cleanWikitext(conn.selfHostingNotes || '')));
+    connectionRows.push(createTableRow('Direct IP', conn.directIp || '', cleanWikitext(conn.directIpNotes || '')));
+  }
+
+  if (connectionRows.length > 0) {
+    connectionTableBody.innerHTML = connectionRows.join('');
+  } else {
+    connectionTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No info</td></tr>';
+  }
+
+  // Populate network ports table
+  const portsTableContainer = document.getElementById('portsTableContainer');
+  const portsTableBody = document.getElementById('portsTableBody');
+
+  if (data.ports && (data.ports.tcp || data.ports.udp || data.ports.upnp)) {
+    const portsRows = [];
+
+    if (data.ports.tcp) {
+      portsRows.push(`<tr><td>TCP</td><td>${escapeHtml(cleanWikitext(data.ports.tcp))}</td></tr>`);
+    }
+    if (data.ports.udp) {
+      portsRows.push(`<tr><td>UDP</td><td>${escapeHtml(cleanWikitext(data.ports.udp))}</td></tr>`);
+    }
+    if (data.ports.upnp) {
+      portsRows.push(`<tr><td>UPnP</td><td>${escapeHtml(cleanWikitext(data.ports.upnp))}</td></tr>`);
+    }
+
+    portsTableBody.innerHTML = portsRows.join('');
+    portsTableContainer.classList.remove('hidden');
+  } else {
+    portsTableContainer.classList.add('hidden');
+  }
+
+  // Generate recommendations
+  generateRecommendations(data, gameRecommendations);
+}
+
+// Create table row
+function createTableRow(type, support, details) {
+  const supportFormatted = formatSupport(support);
+  const detailsFormatted = escapeHtml(details || '');
+
+  return `
+    <tr>
+      <td>${escapeHtml(type)}</td>
+      <td>${supportFormatted}</td>
+      <td>${detailsFormatted}</td>
+    </tr>
+  `;
+}
+
+// Format support value
+function formatSupport(value) {
+  if (!value || value.trim() === '') {
+    return '❓ Unknown';
+  }
+
+  const lowerValue = value.toLowerCase().trim();
+
+  if (lowerValue === 'true' || lowerValue === 'yes') {
+    return '✅ Yes';
+  } else if (lowerValue === 'false' || lowerValue === 'no') {
+    return '❌ No';
+  } else if (lowerValue === 'limited' || lowerValue === 'hackable') {
+    return '⚠️ ' + escapeHtml(value);
+  } else if (lowerValue === 'unknown') {
+    return '❓ Unknown';
+  } else {
+    return escapeHtml(value);
+  }
+}
+
+// Generate recommendations
+function generateRecommendations(data, container) {
+  const recommendations = [];
+  const conn = data.connections || {};
+  const mp = data.multiplayer || {};
+
+  // Check for dedicated servers
+  const hasDedicatedServers = conn.dedicated && (conn.dedicated.toLowerCase() === 'true' || conn.dedicated.toLowerCase() === 'yes');
+  const hasP2P = conn.p2p && (conn.p2p.toLowerCase() === 'true' || conn.p2p.toLowerCase() === 'yes' || conn.p2p.toLowerCase() === 'limited');
+  const hasLAN = mp.lanPlay && (mp.lanPlay.toLowerCase() === 'true' || mp.lanPlay.toLowerCase() === 'yes');
+
+  if (hasDedicatedServers) {
+    recommendations.push({
+      type: 'error',
+      text: '⚠️ <strong>Unsteam Global Fix will NOT work</strong> - This game uses dedicated servers.'
+    });
+  } else if (hasP2P) {
+    recommendations.push({
+      type: 'warning',
+      text: '⚠️ <strong>Unsteam Global Fix should work</strong>, unless third-party authentications are used. If it does or doesn\'t work, please report the name of the game in <a href="https://github.com/ShayneVi/Global-OnlineFix-Unsteam/issues" target="_blank">GitHub Issues</a>.'
+    });
+  }
+
+  if (hasLAN) {
+    recommendations.push({
+      type: 'success',
+      text: '✅ <strong>Virtual LAN should function with Goldberg Steam Emu</strong> - Use tools like Hamachi or ZeroTier to create a virtual LAN.'
+    });
+  }
+
+  // Display recommendations
+  if (recommendations.length > 0) {
+    container.innerHTML = recommendations.map(rec => `
+      <div class="game-recommendations recommendation-${rec.type}">
+        ${rec.text}
+      </div>
+    `).join('');
+  } else {
+    container.innerHTML = '';
+  }
+}
+
+// Show no game info state
+function showNoGameInfo() {
+  const gameInfoContent = document.getElementById('gameInfoContent');
+  const multiplayerTableBody = document.getElementById('multiplayerTableBody');
+  const connectionTableBody = document.getElementById('connectionTableBody');
+  const gameRecommendations = document.getElementById('gameRecommendations');
+
+  multiplayerTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No info</td></tr>';
+  connectionTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No info</td></tr>';
+  gameRecommendations.innerHTML = '<div class="game-recommendations recommendation-info">ℹ️ No network information available for this game on PCGamingWiki.</div>';
+
+  gameInfoContent.classList.remove('hidden');
 }
 
 // Close dropdown when clicking outside
@@ -102,9 +381,33 @@ document.addEventListener('click', (e) => {
 // Game search input event listener
 gameSearchInput.addEventListener('input', handleGameSearch);
 
-// Enable install button when AppID is entered
+// Goldberg checkbox toggle
+goldbergCheckbox.addEventListener('change', () => {
+  if (goldbergCheckbox.checked) {
+    goldbergOptions.classList.remove('hidden');
+  } else {
+    goldbergOptions.classList.add('hidden');
+  }
+});
+
+// Enable buttons when AppID is entered
+let appIdTimeout = null;
 appIdInput.addEventListener('input', () => {
-  installBtn.disabled = appIdInput.value.trim() === '';
+  const appId = appIdInput.value.trim();
+  const hasAppId = appId !== '';
+  installBtn.disabled = !hasAppId;
+  unfixBtn.disabled = !hasAppId;
+
+  // Debounce the game info fetch
+  if (appIdTimeout) {
+    clearTimeout(appIdTimeout);
+  }
+
+  if (hasAppId && /^\d+$/.test(appId)) {
+    appIdTimeout = setTimeout(() => {
+      fetchAndDisplayGameInfo(appId);
+    }, 500);
+  }
 });
 
 // Handle Enter key in input
@@ -130,21 +433,35 @@ async function handleInstall() {
     return;
   }
 
+  // Check if Goldberg is enabled
+  const goldbergEnabled = goldbergCheckbox.checked;
+  let goldbergOptions = null;
+
+  if (goldbergEnabled) {
+    goldbergOptions = {
+      accountName: accountNameInput.value.trim() || 'Goldberg',
+      steamId: steamIdInput.value.trim() || '76561197960287930',
+      language: languageSelect.value || 'english',
+      steamApiKey: steamApiKeyInput.value.trim() || null
+    };
+  }
+
   // Disable input during installation
   appIdInput.disabled = true;
   installBtn.disabled = true;
+  goldbergCheckbox.disabled = true;
 
   // Show status
-  showStatus('Installing GlobalFix...');
+  showStatus(goldbergEnabled ? 'Installing GlobalFix and Goldberg Emulator...' : 'Installing GlobalFix...');
 
   try {
-    // Call the main process to install GlobalFix
-    const result = await window.electronAPI.installGlobalFix(appId);
+    // Call the main process to install GlobalFix (and optionally Goldberg)
+    const result = await window.electronAPI.installGlobalFix(appId, goldbergOptions);
 
     hideStatus();
 
     if (result.success) {
-      showSuccess(result);
+      showSuccess(result, goldbergEnabled);
     } else {
       showError('Installation Failed', result.error);
     }
@@ -155,6 +472,7 @@ async function handleInstall() {
     // Re-enable input
     appIdInput.disabled = false;
     installBtn.disabled = false;
+    goldbergCheckbox.disabled = false;
   }
 }
 
@@ -169,10 +487,30 @@ function hideStatus() {
   statusSection.classList.add('hidden');
 }
 
-function showSuccess(result) {
+function showSuccess(result, goldbergEnabled) {
   resultSection.classList.remove('hidden', 'error');
   resultSection.classList.add('success');
   resultTitle.textContent = '✓ Installation Successful!';
+
+  let nextSteps = '';
+  if (goldbergEnabled) {
+    nextSteps = `
+      <li>GlobalFix has been installed to your game folder</li>
+      <li>Goldberg emulator has been configured with achievements and VLAN support</li>
+      <li>steam_settings folder has been created with all necessary files</li>
+      <li><strong>Simply launch your game from Steam normally</strong></li>
+      <li>For VLAN play: Connect to your Hamachi/ZeroTier network first</li>
+      <li>Each player should have a unique Steam ID (increment the last digits)</li>
+    `;
+  } else {
+    nextSteps = `
+      <li>GlobalFix has been installed to your game folder</li>
+      <li>The unsteam.ini file has been configured with your game settings</li>
+      <li>The winmm.dll loader has been placed in the necessary locations</li>
+      <li><strong>Simply launch your game from Steam normally</strong></li>
+      <li>No launch options needed - the fix will load automatically!</li>
+    `;
+  }
 
   resultDetails.innerHTML = `
     <div class="result-details-item">
@@ -184,11 +522,7 @@ function showSuccess(result) {
     <div class="result-details-item" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ccc;">
       <strong>Next Steps:</strong>
       <ol style="margin-left: 20px; margin-top: 10px; line-height: 1.6;">
-        <li>GlobalFix has been installed to your game folder</li>
-        <li>The unsteam.ini file has been configured with your game settings</li>
-        <li>The winmm.dll loader has been placed in the necessary locations</li>
-        <li><strong>Simply launch your game from Steam normally</strong></li>
-        <li>No launch options needed - the fix will load automatically!</li>
+        ${nextSteps}
       </ol>
     </div>
   `;
@@ -207,6 +541,85 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Handle unfix button click
+unfixBtn.addEventListener('click', handleUnfix);
+
+async function handleUnfix() {
+  const appId = appIdInput.value.trim();
+
+  if (!appId) {
+    showError('App ID Required', 'Please enter a Steam App ID to unfix.');
+    return;
+  }
+
+  // Validate AppID (should be numbers only)
+  if (!/^\d+$/.test(appId)) {
+    showError('Invalid App ID', 'Please enter a valid numeric Steam App ID.');
+    return;
+  }
+
+  // Confirm with user
+  if (!confirm('This will remove all GlobalFix and Goldberg modifications from the game. Continue?')) {
+    return;
+  }
+
+  // Disable input during unfix
+  appIdInput.disabled = true;
+  installBtn.disabled = true;
+  unfixBtn.disabled = true;
+  goldbergCheckbox.disabled = true;
+
+  // Show status
+  showStatus('Unfixing game...');
+
+  try {
+    // Call the main process to unfix the game
+    const result = await window.electronAPI.unfixGame(appId);
+
+    hideStatus();
+
+    if (result.success) {
+      showUnfixSuccess(result);
+    } else {
+      showError('Unfix Failed', result.error || 'An error occurred while unfixing the game.');
+    }
+  } catch (error) {
+    hideStatus();
+    showError('Unfix Error', error.message || 'An unexpected error occurred.');
+  } finally {
+    // Re-enable input
+    appIdInput.disabled = false;
+    installBtn.disabled = false;
+    unfixBtn.disabled = false;
+    goldbergCheckbox.disabled = false;
+  }
+}
+
+function showUnfixSuccess(result) {
+  resultSection.classList.remove('hidden', 'error');
+  resultSection.classList.add('success');
+  resultTitle.textContent = '✓ Game Unfixed Successfully!';
+
+  const removedItemsHtml = result.removedItems && result.removedItems.length > 0
+    ? `<ul style="margin-left: 20px; margin-top: 10px; line-height: 1.6;">${result.removedItems.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+    : '<p>No modifications were found to remove.</p>';
+
+  resultDetails.innerHTML = `
+    <div class="result-details-item">
+      <strong>Game Folder:</strong> ${escapeHtml(result.gameFolder)}
+    </div>
+    <div class="result-details-item" style="margin-top: 15px;">
+      <strong>Removed Items:</strong>
+      ${removedItemsHtml}
+    </div>
+    <div class="result-details-item" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ccc;">
+      <p>✓ The game has been restored to its original state.</p>
+      <p>You can now launch the game normally through Steam.</p>
+    </div>
+  `;
+}
+
 // Initialize
 installBtn.disabled = true;
+unfixBtn.disabled = true;
 loadSteamApps();
