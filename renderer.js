@@ -637,7 +637,17 @@ function showSuccess(result, unsteamEnabled, goldbergEnabled, steamlessEnabled) 
   if (unsteamEnabled && result.unsteam) {
     nextSteps += '<li>Unsteam has been installed to your game folder</li>';
     nextSteps += '<li>The unsteam.ini file has been configured with your game settings</li>';
-    nextSteps += '<li>Steam launch options have been configured automatically</li>';
+
+    // Check if launch options were set successfully
+    if (result.launchOptionsSet) {
+      nextSteps += '<li>Steam launch options have been configured automatically</li>';
+    } else if (result.launchOptionsError) {
+      nextSteps += '<li><strong style="color: #e74c3c;">⚠️ WARNING: Steam launch options could not be set automatically</strong></li>';
+      nextSteps += `<li style="color: #e74c3c; font-size: 0.9em;">Error: ${escapeHtml(result.launchOptionsError)}</li>`;
+      nextSteps += '<li style="font-weight: bold;">You must set launch options manually in Steam:</li>';
+      nextSteps += `<li style="font-family: monospace; background: #f5f5f5; padding: 5px; margin: 5px 0;">"${result.unsteam.loaderPath}" %command%</li>`;
+      nextSteps += '<li style="font-size: 0.9em;">Right-click game → Properties → Launch Options → Paste the above</li>';
+    }
   }
 
   if (goldbergEnabled && result.goldberg) {

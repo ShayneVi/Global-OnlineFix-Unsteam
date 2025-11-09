@@ -29,7 +29,9 @@
       "buildResources": "build"
     },
     "asarUnpack": [
-      "node_modules/7zip-bin/**/*"
+      "node_modules/7zip-bin/**/*",
+      "steamless/**/*",
+      "goldberg_dlls/**/*"
     ],
     "files": [
       "main.js",

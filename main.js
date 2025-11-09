@@ -259,11 +259,20 @@ async function extractZip(zipPath, destPath) {
 // Unpack game executable using Steamless
 async function steamlessUnpack(exePath) {
   return new Promise((resolve, reject) => {
-    const steamlessExe = path.join(__dirname, 'steamless', 'Steamless.CLI.exe');
+    // Determine the correct resources path based on whether app is packaged
+    // When packaged: use process.resourcesPath/app.asar.unpacked
+    // When dev: use __dirname
+    const resourcesPath = app.isPackaged
+      ? path.join(process.resourcesPath, 'app.asar.unpacked')
+      : __dirname;
+
+    const steamlessExe = path.join(resourcesPath, 'steamless', 'Steamless.CLI.exe');
+
+    console.log(`Looking for Steamless at: ${steamlessExe}`);
 
     // Check if Steamless exists
     if (!fs.existsSync(steamlessExe)) {
-      return reject(new Error('Steamless.CLI.exe not found in steamless folder'));
+      return reject(new Error(`Steamless.CLI.exe not found at: ${steamlessExe}\n\nPlease ensure the steamless folder is included in your installation.`));
     }
 
     const args = ['--quiet', '--recalcchecksum', exePath];
@@ -767,7 +776,10 @@ async function installGoldberg(gameFolder, appId, goldbergOptions) {
   }
 
   // Copy Goldberg steam_api DLL
-  const goldbergDllFolder = path.join(__dirname, 'goldberg_dlls');
+  const resourcesPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'app.asar.unpacked')
+    : __dirname;
+  const goldbergDllFolder = path.join(resourcesPath, 'goldberg_dlls');
   const is64bit = steamApiInfo.is64bit;
   const sourceDll = is64bit ? 'steam_api64.dll' : 'steam_api.dll';
   const sourcePath = path.join(goldbergDllFolder, sourceDll);
@@ -1442,7 +1454,10 @@ ipcMain.handle('install-globalfix', async (event, options) => {
       gameFolder: gameExeDir,
       gameExe: gameExeName,
       steamless: steamlessApplied,
-      unsteam: unsteamEnabled,
+      unsteam: unsteamEnabled ? {
+        installed: true,
+        loaderPath: path.join(gameExeDir, 'unsteam_loader64.exe')
+      } : null,
       launchOptionsSet: launchOptionsSet,
       launchOptionsError: launchOptionsError,
       goldberg: goldbergResult ? {
