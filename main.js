@@ -278,8 +278,58 @@ function modifyUnsteamIni(iniPath, exePath, dllPath, appId) {
   }
 }
 
+// Remove Steam launch options by setting them to empty string
+async function removeSteamLaunchOptions(appId) {
+  try {
+    const steamPath = findSteamPath();
+    if (!steamPath) {
+      throw new Error('Steam path not found');
+    }
+
+    const userDataPath = path.join(steamPath, 'userdata');
+    const users = fs.readdirSync(userDataPath);
+
+    let modified = false;
+
+    for (const user of users) {
+      const configPath = path.join(userDataPath, user, 'config', 'localconfig.vdf');
+
+      if (fs.existsSync(configPath)) {
+        let content = fs.readFileSync(configPath, 'utf-8');
+
+        // Check if app ID exists in this config
+        if (content.includes(`"${appId}"`)) {
+          // Check if LaunchOptions exists for this app
+          const launchOptionsPattern = new RegExp(
+            `"${appId}"\\s*\\n\\s*\\{[^}]*"LaunchOptions"\\s*"[^"]*"`,
+            's'
+          );
+
+          if (launchOptionsPattern.test(content)) {
+            // Clear the LaunchOptions value (set it to empty string)
+            // This mirrors how modifySteamLaunchOptions works but clears the value
+            content = content.replace(
+              new RegExp(`("${appId}"\\s*\\n\\s*\\{[^}]*"LaunchOptions"\\s*")([^"]*)(")`,'s'),
+              `$1$3`  // Keeps the key and quotes but removes the value between them
+            );
+
+            fs.writeFileSync(configPath, content, 'utf-8');
+            modified = true;
+            console.log(`Launch options cleared for AppID ${appId} in user ${user}`);
+          }
+        }
+      }
+    }
+
+    return modified;
+  } catch (error) {
+    console.error('Error removing launch options:', error);
+    return false;
+  }
+}
+
 // Modify Steam launch options
-async function modifySteamLaunchOptions(appId, gamePath) {
+async function modifySteamLaunchOptions(appId, loaderPath) {
   try {
     const steamPath = findSteamPath();
     if (!steamPath) {
@@ -298,7 +348,7 @@ async function modifySteamLaunchOptions(appId, gamePath) {
         let content = fs.readFileSync(configPath, 'utf-8');
 
         // Escape backslashes for the launch options path
-        const launchOptions = `\\"${path.join(gamePath, 'unsteam_loader64.exe').replace(/\\/g, '\\\\')}\\" %command%`;
+        const launchOptions = `\\"${loaderPath.replace(/\\/g, '\\\\')}\\" %command%`;
 
         // Check if app ID exists in this config
         if (content.includes(`"${appId}"`)) {
@@ -874,27 +924,35 @@ function extractField(text, fieldName) {
   // Escape special regex characters in fieldName
   const escapedFieldName = fieldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  // Strategy: Capture everything from |fieldname = until the next field or end of template
-  // Lookahead for: newline followed by | (next field) OR }} (end of template)
-  const regex = new RegExp(
-    `\\|\\s*${escapedFieldName}\\s*=\\s*([\\s\\S]*?)(?=\\n\\s*\\||}}$)`,
-    'i'
+  // First, find the field line
+  const fieldLineRegex = new RegExp(`^\\|\\s*${escapedFieldName}\\s*=(.*)$`, 'im');
+  const lineMatch = text.match(fieldLineRegex);
+
+  if (!lineMatch) {
+    return ''; // Field not found
+  }
+
+  const valueOnSameLine = lineMatch[1].trim();
+
+  // If there's no value on the same line, field is empty
+  if (!valueOnSameLine) {
+    return '';
+  }
+
+  // There's a value on the same line. Check if it continues on next lines.
+  // Capture from |fieldname = until the next | at start of line or }}
+  const multiLineRegex = new RegExp(
+    `\\|\\s*${escapedFieldName}\\s*=\\s*([\\s\\S]*?)(?=^\\s*\\||^\\s*}}|$)`,
+    'im'
   );
+  const multiMatch = text.match(multiLineRegex);
 
-  const match = text.match(regex);
-
-  if (!match || !match[1]) {
-    return '';
+  if (multiMatch && multiMatch[1]) {
+    return multiMatch[1].trim();
   }
 
-  const value = match[1].trim();
-
-  // Check if the value is JUST whitespace/newlines - means field is empty
-  if (!value || value.length === 0) {
-    return '';
-  }
-
-  return value;
+  // Fall back to single-line value
+  return valueOnSameLine;
 }
 
 // IPC handler for fetching PCGamingWiki info
@@ -993,7 +1051,8 @@ async function unfixGame(gameFolder) {
     'unsteam.dll',
     'unsteam_loader64.exe',
     'unsteam_loader32.exe',
-    'winmm.dll'
+    'winmm.dll',
+    'winmm64.dll'
   ];
 
   for (const fileName of unsteamFiles) {
@@ -1033,7 +1092,17 @@ ipcMain.handle('unfix-game', async (event, appId) => {
       return { success: false, error: `Game with AppID ${appId} not found in any Steam library` };
     }
 
-    // Step 4: Unfix the game
+    // Step 4: Remove Steam launch options
+    try {
+      const removed = await removeSteamLaunchOptions(appId);
+      if (removed) {
+        console.log('Steam launch options removed successfully');
+      }
+    } catch (error) {
+      console.warn('Failed to remove launch options:', error);
+    }
+
+    // Step 5: Unfix the game
     const result = await unfixGame(gameFolder);
 
     if (result.success) {
@@ -1136,26 +1205,48 @@ ipcMain.handle('install-globalfix', async (event, appId, goldbergOptions) => {
       modifyUnsteamIni(finalIniPath, exePathForIni, dllPathForIni, appId);
     }
 
-    // Step 8: Copy winmm.dll to necessary locations
-    // winmm.dll is the DLL hijacking file that loads the fix
-    const winmmSourcePath = path.join(gameExeDir, 'winmm.dll');
+    // Cleanup
+    fs.unlinkSync(tempZipPath);
 
-    if (!fs.existsSync(winmmSourcePath)) {
-      console.warn('winmm.dll not found in extracted files - this may be expected for older GlobalFix versions');
-    } else {
-      // Always copy winmm.dll to exe directory (it's already there from extraction)
-      // If exe is in subfolder, also copy to root
+    // Step 7.5: Delete winmm.dll files (we're using launch options instead)
+    const winmmFiles = ['winmm.dll', 'winmm64.dll'];
+    for (const winmmFile of winmmFiles) {
+      const winmmPath = path.join(gameExeDir, winmmFile);
+      if (fs.existsSync(winmmPath)) {
+        try {
+          fs.unlinkSync(winmmPath);
+          console.log(`Deleted ${winmmFile} (not needed with launch options method)`);
+        } catch (error) {
+          console.warn(`Failed to delete ${winmmFile}:`, error);
+        }
+      }
+      // Also check and delete from root if exe is in subfolder
       if (exeInSubfolder) {
-        const rootWinmmPath = path.join(gameFolder, 'winmm.dll');
-        fs.copyFileSync(winmmSourcePath, rootWinmmPath);
-        console.log('Copied winmm.dll to both exe folder and root folder');
-      } else {
-        console.log('winmm.dll placed in root folder (same as exe location)');
+        const rootWinmmPath = path.join(gameFolder, winmmFile);
+        if (fs.existsSync(rootWinmmPath)) {
+          try {
+            fs.unlinkSync(rootWinmmPath);
+            console.log(`Deleted ${winmmFile} from root folder`);
+          } catch (error) {
+            console.warn(`Failed to delete ${winmmFile} from root:`, error);
+          }
+        }
       }
     }
 
-    // Cleanup
-    fs.unlinkSync(tempZipPath);
+    // Step 8: Modify Steam launch options to use unsteam_loader64.exe
+    const loaderPath = path.join(gameExeDir, 'unsteam_loader64.exe');
+    let launchOptionsSet = false;
+    let launchOptionsError = null;
+
+    try {
+      await modifySteamLaunchOptions(appId, loaderPath);
+      launchOptionsSet = true;
+      console.log('Steam launch options updated successfully');
+    } catch (error) {
+      launchOptionsError = error.message;
+      console.error('Failed to modify Steam launch options:', error);
+    }
 
     // Step 9: Install Goldberg if requested
     let goldbergResult = null;
@@ -1178,9 +1269,8 @@ ipcMain.handle('install-globalfix', async (event, appId, goldbergOptions) => {
       success: true,
       gameFolder: gameExeDir,
       gameExe: gameExeName,
-      launchOptionsSet: null, // No longer needed
-      launchOptionsPath: null,
-      launchOptionsError: null,
+      launchOptionsSet: launchOptionsSet,
+      launchOptionsError: launchOptionsError,
       goldberg: goldbergResult ? {
         installed: true,
         steamApiPath: goldbergResult.steamApiPath,

@@ -105,6 +105,20 @@ function selectGame(appId, gameName) {
   fetchAndDisplayGameInfo(appId);
 }
 
+// Clear game selection
+function clearGameSelection() {
+  appIdInput.value = '';
+  gameSearchInput.value = '';
+  installBtn.disabled = true;
+  unfixBtn.disabled = true;
+
+  // Hide game info section
+  const gameInfoSection = document.getElementById('gameInfoSection');
+  if (gameInfoSection) {
+    gameInfoSection.classList.add('hidden');
+  }
+}
+
 // Fetch and display game info from PCGamingWiki
 async function fetchAndDisplayGameInfo(appId) {
   console.log(`[Renderer] Fetching game info for AppID: ${appId}`);
@@ -328,8 +342,8 @@ function generateRecommendations(data, container) {
 
   if (hasDedicatedServers) {
     recommendations.push({
-      type: 'error',
-      text: '⚠️ <strong>Unsteam Global Fix will NOT work</strong> - This game uses dedicated servers.'
+      type: 'warning',
+      text: '⚠️ <strong>Unsteam Global Fix MAY NOT work</strong> - This game uses dedicated servers. Please do try and send feedback on <a href="https://github.com/ShayneVi/Global-OnlineFix-Unsteam/issues" target="_blank">GitHub Issues</a>.'
     });
   } else if (hasP2P) {
     recommendations.push({
@@ -379,7 +393,14 @@ document.addEventListener('click', (e) => {
 });
 
 // Game search input event listener
-gameSearchInput.addEventListener('input', handleGameSearch);
+gameSearchInput.addEventListener('input', () => {
+  handleGameSearch();
+
+  // Clear App ID when user starts searching for a new game
+  if (appIdInput.value && gameSearchInput.value !== appIdInput.value) {
+    appIdInput.value = '';
+  }
+});
 
 // Goldberg checkbox toggle
 goldbergCheckbox.addEventListener('change', () => {
@@ -470,8 +491,10 @@ async function handleInstall() {
     showError('Installation Error', error.message || 'An unexpected error occurred.');
   } finally {
     // Re-enable input
+    gameSearchInput.disabled = false;
     appIdInput.disabled = false;
     installBtn.disabled = false;
+    unfixBtn.disabled = false;
     goldbergCheckbox.disabled = false;
   }
 }
@@ -498,7 +521,9 @@ function showSuccess(result, goldbergEnabled) {
       <li>GlobalFix has been installed to your game folder</li>
       <li>Goldberg emulator has been configured with achievements and VLAN support</li>
       <li>steam_settings folder has been created with all necessary files</li>
-      <li><strong>Simply launch your game from Steam normally</strong></li>
+      <li>Steam launch options have been configured automatically</li>
+      <li><strong style="color: #e74c3c;">⚠️ IMPORTANT: Close Steam completely and reopen it</strong></li>
+      <li>After restarting Steam, launch your game normally</li>
       <li>For VLAN play: Connect to your Hamachi/ZeroTier network first</li>
       <li>Each player should have a unique Steam ID (increment the last digits)</li>
     `;
@@ -506,9 +531,10 @@ function showSuccess(result, goldbergEnabled) {
     nextSteps = `
       <li>GlobalFix has been installed to your game folder</li>
       <li>The unsteam.ini file has been configured with your game settings</li>
-      <li>The winmm.dll loader has been placed in the necessary locations</li>
-      <li><strong>Simply launch your game from Steam normally</strong></li>
-      <li>No launch options needed - the fix will load automatically!</li>
+      <li>Steam launch options have been configured automatically</li>
+      <li><strong style="color: #e74c3c;">⚠️ IMPORTANT: Close Steam completely and reopen it</strong></li>
+      <li>After restarting Steam, launch your game normally</li>
+      <li>The fix will load automatically through Steam launch options!</li>
     `;
   }
 
@@ -588,6 +614,7 @@ async function handleUnfix() {
     showError('Unfix Error', error.message || 'An unexpected error occurred.');
   } finally {
     // Re-enable input
+    gameSearchInput.disabled = false;
     appIdInput.disabled = false;
     installBtn.disabled = false;
     unfixBtn.disabled = false;
@@ -614,7 +641,8 @@ function showUnfixSuccess(result) {
     </div>
     <div class="result-details-item" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ccc;">
       <p>✓ The game has been restored to its original state.</p>
-      <p>You can now launch the game normally through Steam.</p>
+      <p><strong style="color: #e74c3c;">⚠️ IMPORTANT: Close Steam completely and reopen it</strong></p>
+      <p>After restarting Steam, you can launch the game normally.</p>
     </div>
   `;
 }
