@@ -50,19 +50,60 @@ app.on('activate', () => {
 
 // Helper function to find Steam installation path
 function findSteamPath() {
+  // Method 1: Check Windows Registry (most reliable)
+  try {
+    const { execSync } = require('child_process');
+    // Query registry for Steam installation path
+    const regQuery = 'reg query "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Valve\\Steam" /v InstallPath';
+    const output = execSync(regQuery, { encoding: 'utf-8' });
+    const match = output.match(/InstallPath\s+REG_SZ\s+(.+)/);
+
+    if (match && match[1]) {
+      const steamPath = match[1].trim();
+      if (fs.existsSync(steamPath)) {
+        console.log(`Found Steam via Registry: ${steamPath}`);
+        return steamPath;
+      }
+    }
+  } catch (error) {
+    console.log('Registry lookup failed, trying other methods...');
+  }
+
+  // Method 2: Check all drives (A-Z) for Steam installation
+  const drives = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  const steamFolderNames = ['Steam', 'steam'];
+  const commonLocations = [
+    'Program Files (x86)\\Steam',
+    'Program Files\\Steam',
+    'Steam',
+    'Games\\Steam',
+    'SteamLibrary'
+  ];
+
+  for (const drive of drives) {
+    for (const location of commonLocations) {
+      const steamPath = `${drive}:\\${location}`;
+      if (fs.existsSync(steamPath) && fs.existsSync(path.join(steamPath, 'steam.exe'))) {
+        console.log(`Found Steam on ${drive}: drive: ${steamPath}`);
+        return steamPath;
+      }
+    }
+  }
+
+  // Method 3: Fall back to environment variables (already covers C: drive)
   const possiblePaths = [
-    'C:\\Program Files (x86)\\Steam',
-    'C:\\Program Files\\Steam',
-    path.join(process.env.ProgramFiles, 'Steam'),
-    path.join(process.env['ProgramFiles(x86)'], 'Steam')
+    path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Steam'),
+    path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Steam')
   ];
 
   for (const steamPath of possiblePaths) {
     if (fs.existsSync(steamPath)) {
+      console.log(`Found Steam via environment: ${steamPath}`);
       return steamPath;
     }
   }
 
+  console.error('Steam installation not found on any drive!');
   return null;
 }
 
