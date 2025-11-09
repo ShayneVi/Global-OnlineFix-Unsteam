@@ -486,7 +486,7 @@ function deleteFixState(gameFolder) {
 
 // Modify Steam launch options
 // Helper function to close Steam and wait for it to fully exit
-async function closeSteamAndWait() {
+async function closeSteamAndWait(steamPath) {
   const { execSync } = require('child_process');
 
   try {
@@ -497,6 +497,7 @@ async function closeSteamAndWait() {
     }
 
     logToRenderer('🔄 Closing Steam to apply configuration changes...');
+    logToRenderer('   Steam must fully shut down and save its config before we can modify it.');
 
     // Close Steam gracefully
     execSync('taskkill /IM steam.exe', { encoding: 'utf-8' });
@@ -510,14 +511,83 @@ async function closeSteamAndWait() {
 
       const checkOutput = execSync('tasklist /FI "IMAGENAME eq steam.exe" /NH', { encoding: 'utf-8' });
       if (!checkOutput.toLowerCase().includes('steam.exe')) {
-        logToRenderer('✓ Steam closed successfully');
-        return true; // We closed Steam
+        logToRenderer('✓ Steam process has exited');
+        break;
       }
       attempts++;
     }
 
-    logToRenderer('⚠️ Steam did not close within 10 seconds');
-    return true; // We tried to close it
+    if (attempts >= maxAttempts) {
+      logToRenderer('⚠️ Steam did not close within 10 seconds');
+      return true; // We tried to close it
+    }
+
+    // CRITICAL: Wait for Steam's config files to finish being written
+    // Steam writes localconfig.vdf as it shuts down, we need to wait for that to complete
+    logToRenderer('⏳ Waiting for Steam to finish writing config files...');
+
+    const userDataPath = path.join(steamPath, 'userdata');
+    if (fs.existsSync(userDataPath)) {
+      const users = fs.readdirSync(userDataPath);
+      const configFiles = [];
+
+      // Collect all localconfig.vdf files
+      for (const user of users) {
+        const configPath = path.join(userDataPath, user, 'config', 'localconfig.vdf');
+        if (fs.existsSync(configPath)) {
+          configFiles.push(configPath);
+        }
+      }
+
+      // Wait for all config files to stop being modified (stable for 2 seconds)
+      const stabilityWaitMs = 2000;
+      const maxConfigWaitMs = 10000;
+      const startTime = Date.now();
+
+      let allStable = false;
+      while (!allStable && (Date.now() - startTime) < maxConfigWaitMs) {
+        // Get current modification times
+        const mtimes = configFiles.map(f => {
+          try {
+            return fs.statSync(f).mtimeMs;
+          } catch (e) {
+            return 0;
+          }
+        });
+
+        // Wait
+        await new Promise(resolve => setTimeout(resolve, stabilityWaitMs));
+
+        // Check if any files were modified during the wait
+        allStable = true;
+        for (let i = 0; i < configFiles.length; i++) {
+          try {
+            const newMtime = fs.statSync(configFiles[i]).mtimeMs;
+            if (newMtime !== mtimes[i]) {
+              allStable = false;
+              logToRenderer(`   Config file still being written (${users[i]})...`);
+              break;
+            }
+          } catch (e) {
+            // File might have been deleted or locked, skip
+          }
+        }
+      }
+
+      if (allStable) {
+        logToRenderer('✓ Config files are stable and ready for modification');
+      } else {
+        logToRenderer('⚠️ Config files may still be in use, proceeding anyway...');
+      }
+    }
+
+    // Extra safety wait
+    logToRenderer('   Adding 2-second safety buffer...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    logToRenderer('✓ Steam fully shut down - safe to modify config');
+    return true; // We closed Steam
+
   } catch (e) {
     logErrorToRenderer('Error while closing Steam:', e.message);
     return false;
@@ -544,7 +614,7 @@ async function modifySteamLaunchOptions(appId, loaderPath) {
 
     // Close Steam if it's running
     logToRenderer('\n=== Step 2: Ensuring Steam is closed ===');
-    const steamWasClosed = await closeSteamAndWait();
+    const steamWasClosed = await closeSteamAndWait(steamPath);
     const needsSteamRestart = steamWasClosed;
 
     if (steamWasClosed) {
