@@ -12,6 +12,33 @@ const execPromise = util.promisify(exec);
 
 let mainWindow;
 
+// Helper function to log to both main console AND renderer console
+function logToRenderer(...args) {
+  const message = args.map(arg =>
+    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+  ).join(' ');
+
+  console.log(...args); // Log to main process console
+
+  // Send to renderer console if window exists
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.executeJavaScript(`console.log(${JSON.stringify(message)})`);
+  }
+}
+
+function logErrorToRenderer(...args) {
+  const message = args.map(arg =>
+    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+  ).join(' ');
+
+  console.error(...args); // Log to main process console
+
+  // Send to renderer console if window exists
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.executeJavaScript(`console.error(${JSON.stringify(message)})`);
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 800,
@@ -459,37 +486,37 @@ function deleteFixState(gameFolder) {
 
 // Modify Steam launch options
 async function modifySteamLaunchOptions(appId, loaderPath) {
-  console.log('\n╔══════════════════════════════════════════════════════════╗');
-  console.log('║  INSIDE modifySteamLaunchOptions FUNCTION               ║');
-  console.log('╚══════════════════════════════════════════════════════════╝');
-  console.log('Function called with:');
-  console.log('  - AppID:', appId);
-  console.log('  - Loader Path:', loaderPath);
+  logToRenderer('\n╔══════════════════════════════════════════════════════════╗');
+  logToRenderer('║  INSIDE modifySteamLaunchOptions FUNCTION               ║');
+  logToRenderer('╚══════════════════════════════════════════════════════════╝');
+  logToRenderer('Function called with:');
+  logToRenderer('  - AppID:', appId);
+  logToRenderer('  - Loader Path:', loaderPath);
 
   try {
-    console.log('\nStep 1: Finding Steam installation...');
+    logToRenderer('\nStep 1: Finding Steam installation...');
     const steamPath = findSteamPath();
-    console.log('Steam Path found:', steamPath);
+    logToRenderer('Steam Path found:', steamPath);
 
     if (!steamPath) {
-      console.error('ERROR: Steam path is null/undefined!');
+      logErrorToRenderer('ERROR: Steam path is null/undefined!');
       throw new Error('Steam installation not found. Please ensure Steam is installed. If Steam is installed in a custom location, the app may not be able to find it automatically.');
     }
 
     // Check if Steam is running
-    console.log('\n=== Checking if Steam is running ===');
+    logToRenderer('\n=== Checking if Steam is running ===');
     try {
       const { execSync } = require('child_process');
       const tasklistOutput = execSync('tasklist /FI "IMAGENAME eq steam.exe" /NH', { encoding: 'utf-8' });
       if (tasklistOutput.toLowerCase().includes('steam.exe')) {
-        console.log('⚠️ WARNING: Steam is currently running!');
-        console.log('Steam may overwrite the config file after we modify it.');
-        console.log('It is recommended to close Steam before applying fixes.\n');
+        logToRenderer('⚠️ WARNING: Steam is currently running!');
+        logToRenderer('Steam may overwrite the config file after we modify it.');
+        logToRenderer('It is recommended to close Steam before applying fixes.\n');
       } else {
-        console.log('✓ Steam is not running');
+        logToRenderer('✓ Steam is not running');
       }
     } catch (e) {
-      console.log('Could not check if Steam is running:', e.message);
+      logToRenderer('Could not check if Steam is running:', e.message);
     }
 
     const userDataPath = path.join(steamPath, 'userdata');
@@ -512,33 +539,33 @@ async function modifySteamLaunchOptions(appId, loaderPath) {
     for (const user of users) {
       const configPath = path.join(userDataPath, user, 'config', 'localconfig.vdf');
 
-      console.log(`\n=== Checking Steam user ${user} ===`);
-      console.log(`Config path: ${configPath}`);
+      logToRenderer(`\n=== Checking Steam user ${user} ===`);
+      logToRenderer(`Config path: ${configPath}`);
 
       if (fs.existsSync(configPath)) {
-        console.log(`✓ Config file exists`);
+        logToRenderer(`✓ Config file exists`);
         let content = fs.readFileSync(configPath, 'utf-8');
 
         // Escape backslashes for the launch options path
         const launchOptions = `\\"${loaderPath.replace(/\\/g, '\\\\')}\\" %command%`;
-        console.log(`Launch options to set: ${launchOptions}`);
+        logToRenderer(`Launch options to set: ${launchOptions}`);
 
         // Check if app ID exists in this config
-        console.log(`Looking for AppID "${appId}" in config...`);
+        logToRenderer(`Looking for AppID "${appId}" in config...`);
         if (content.includes(`"${appId}"`)) {
-          console.log(`✓ AppID "${appId}" found in config file`);
+          logToRenderer(`✓ AppID "${appId}" found in config file`);
           foundAppId = true;
 
           // Extract the section around the AppID for debugging
           const appIdIndex = content.indexOf(`"${appId}"`);
           const sampleText = content.substring(Math.max(0, appIdIndex - 50), Math.min(content.length, appIdIndex + 200));
-          console.log(`Context around AppID:\n${sampleText}\n`);
+          logToRenderer(`Context around AppID:\n${sampleText}\n`);
 
           // Find the app section - look for the pattern: "appid"\n\t\t\t{
           const appSectionRegex = new RegExp(`("${appId}"\\s*\\n\\s*\\{)`, 'g');
 
           if (appSectionRegex.test(content)) {
-            console.log(`✓ App section pattern matched`);
+            logToRenderer(`✓ App section pattern matched`);
 
             // Check if LaunchOptions already exists for this app
             const launchOptionsPattern = new RegExp(
@@ -549,57 +576,57 @@ async function modifySteamLaunchOptions(appId, loaderPath) {
             // Create a backup before modifying
             const backupPath = configPath + '.backup';
             fs.writeFileSync(backupPath, content, 'utf-8');
-            console.log(`Created backup at: ${backupPath}`);
+            logToRenderer(`Created backup at: ${backupPath}`);
 
             if (launchOptionsPattern.test(content)) {
-              console.log(`Updating existing LaunchOptions...`);
+              logToRenderer(`Updating existing LaunchOptions...`);
               // Update existing LaunchOptions
               const replaceRegex = new RegExp(`("${appId}"\\s*\\n\\s*\\{[^}]*"LaunchOptions"\\s*")([^"]*)(")`,'s');
               const oldContent = content;
               content = content.replace(replaceRegex, `$1${launchOptions}$3`);
 
               if (content !== oldContent) {
-                console.log(`✓ Content was modified`);
+                logToRenderer(`✓ Content was modified`);
               } else {
-                console.log(`⚠️ WARNING: Replace didn't change anything!`);
+                logToRenderer(`⚠️ WARNING: Replace didn't change anything!`);
               }
             } else {
-              console.log(`Adding new LaunchOptions entry...`);
+              logToRenderer(`Adding new LaunchOptions entry...`);
               // Add new LaunchOptions after the opening brace of the app section
               const addRegex = new RegExp(`("${appId}"\\s*\\n\\s*\\{)`,'');
               const oldContent = content;
               content = content.replace(addRegex, `$1\n\t\t\t\t"LaunchOptions"\t\t"${launchOptions}"`);
 
               if (content !== oldContent) {
-                console.log(`✓ LaunchOptions entry added`);
+                logToRenderer(`✓ LaunchOptions entry added`);
               } else {
-                console.log(`⚠️ WARNING: Add didn't change anything!`);
+                logToRenderer(`⚠️ WARNING: Add didn't change anything!`);
               }
             }
 
             fs.writeFileSync(configPath, content, 'utf-8');
-            console.log(`✓ Config file written successfully`);
+            logToRenderer(`✓ Config file written successfully`);
 
             // Verify the write
             const verifyContent = fs.readFileSync(configPath, 'utf-8');
             if (verifyContent.includes(launchOptions)) {
-              console.log(`✓ VERIFIED: Launch options are in the file`);
+              logToRenderer(`✓ VERIFIED: Launch options are in the file`);
             } else {
-              console.log(`✗ ERROR: Launch options NOT found after writing!`);
+              logToRenderer(`✗ ERROR: Launch options NOT found after writing!`);
             }
 
             modifiedCount++;
             modifiedUsers.push(user);
-            console.log(`✓ Launch options set for AppID ${appId} in Steam user ${user}`);
+            logToRenderer(`✓ Launch options set for AppID ${appId} in Steam user ${user}`);
           } else {
-            console.log(`✗ App section regex did NOT match`);
-            console.log(`Regex pattern: ("${appId}"\\s*\\n\\s*\\{)`);
+            logToRenderer(`✗ App section regex did NOT match`);
+            logToRenderer(`Regex pattern: ("${appId}"\\s*\\n\\s*\\{)`);
           }
         } else {
-          console.log(`✗ AppID "${appId}" NOT found in config file`);
+          logToRenderer(`✗ AppID "${appId}" NOT found in config file`);
         }
       } else {
-        console.log(`✗ Config file does not exist`);
+        logToRenderer(`✗ Config file does not exist`);
       }
     }
 
@@ -613,14 +640,14 @@ async function modifySteamLaunchOptions(appId, loaderPath) {
 
     // Log summary
     if (modifiedCount === 1) {
-      console.log(`✓ Launch options successfully updated for 1 Steam user`);
+      logToRenderer(`✓ Launch options successfully updated for 1 Steam user`);
     } else {
-      console.log(`✓ Launch options successfully updated for ${modifiedCount} Steam users: ${modifiedUsers.join(', ')}`);
+      logToRenderer(`✓ Launch options successfully updated for ${modifiedCount} Steam users: ${modifiedUsers.join(', ')}`);
     }
 
     return { success: true, modifiedCount, modifiedUsers };
   } catch (error) {
-    console.error('Error modifying launch options:', error);
+    logErrorToRenderer('Error modifying launch options:', error);
     throw error; // Re-throw to preserve the error message
   }
 }
@@ -1455,11 +1482,11 @@ ipcMain.handle('install-globalfix', async (event, options) => {
     let launchOptionsSet = false;
     let launchOptionsError = null;
 
-    console.log('\n========== STEP 5: UNSTEAM INSTALLATION ==========');
-    console.log('unsteamEnabled:', unsteamEnabled);
+    logToRenderer('\n========== STEP 5: UNSTEAM INSTALLATION ==========');
+    logToRenderer('unsteamEnabled:', unsteamEnabled);
 
     if (unsteamEnabled) {
-      console.log('✓ Unsteam is ENABLED, proceeding with installation...');
+      logToRenderer('✓ Unsteam is ENABLED, proceeding with installation...');
 
       // Download GlobalFix.zip
       const tempZipPath = path.join(app.getPath('temp'), 'GlobalFix.zip');
@@ -1544,26 +1571,26 @@ ipcMain.handle('install-globalfix', async (event, options) => {
       // Modify Steam launch options to use unsteam_loader64.exe
       const loaderPath = path.join(gameExeDir, 'unsteam_loader64.exe');
 
-      console.log('\n==========================================');
-      console.log('ATTEMPTING TO SET STEAM LAUNCH OPTIONS');
-      console.log('==========================================');
-      console.log('AppID:', appId);
-      console.log('Loader Path:', loaderPath);
-      console.log('About to call modifySteamLaunchOptions...\n');
+      logToRenderer('\n==========================================');
+      logToRenderer('ATTEMPTING TO SET STEAM LAUNCH OPTIONS');
+      logToRenderer('==========================================');
+      logToRenderer('AppID:', appId);
+      logToRenderer('Loader Path:', loaderPath);
+      logToRenderer('About to call modifySteamLaunchOptions...\n');
 
       try {
         const result = await modifySteamLaunchOptions(appId, loaderPath);
         launchOptionsSet = true;
-        console.log(`\n✅ Steam launch options updated successfully for ${result.modifiedCount} user(s)`);
+        logToRenderer(`\n✅ Steam launch options updated successfully for ${result.modifiedCount} user(s)`);
       } catch (error) {
         launchOptionsError = error.message;
-        console.error('\n❌ Failed to modify Steam launch options:', error);
-        console.error('Error stack:', error.stack);
+        logErrorToRenderer('\n❌ Failed to modify Steam launch options:', error);
+        logErrorToRenderer('Error stack:', error.stack);
       }
 
-      console.log('✓ Unsteam installation complete!');
+      logToRenderer('✓ Unsteam installation complete!');
     } else {
-      console.log('✗ Unsteam is NOT enabled - skipping installation');
+      logToRenderer('✗ Unsteam is NOT enabled - skipping installation');
     }
 
     // Step 6: Install Goldberg (if enabled)
