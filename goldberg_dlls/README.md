@@ -6,11 +6,13 @@ This folder should contain the Goldberg emulator DLL files for the app to functi
 
 Place the following files in this folder:
 
-### 32-bit DLL (Required for 32-bit games):
+### 32-bit Files (Required for 32-bit games):
 - `steam_api.dll` - 32-bit Steam API emulator
+- `generate_interfaces_x32.exe` - Interface generator for 32-bit games
 
-### 64-bit DLL (Required for 64-bit games):
+### 64-bit Files (Required for 64-bit games):
 - `steam_api64.dll` - 64-bit Steam API emulator
+- `generate_interfaces_x64.exe` - Interface generator for 64-bit games
 
 ## Where to Get Them
 
@@ -35,11 +37,23 @@ After adding the files, this folder should look like:
 goldberg_dlls/
 ├── README.md (this file)
 ├── steam_api.dll
-└── steam_api64.dll
+├── steam_api64.dll
+├── generate_interfaces_x32.exe
+└── generate_interfaces_x64.exe
 ```
+
+## What do these files do?
+
+### Steam API DLLs (steam_api.dll / steam_api64.dll)
+These replace the game's original Steam API DLL to emulate Steam's functionality without requiring Steam to be running.
+
+### Interface Generators (generate_interfaces_*.exe)
+These tools automatically scan the game's original Steam API DLL and create a `steam_interfaces.txt` file. This file is **essential for older games** (pre-May 2016) to work correctly with Goldberg. The app runs the appropriate version automatically based on the game's architecture.
 
 ## Important Note
 
-⚠️ The app will NOT install Goldberg without these DLL files. Make sure to download them from the official repository to ensure you have the latest and most secure version.
+⚠️ The app will NOT install Goldberg without the Steam API DLL files. Make sure to download them from the official repository to ensure you have the latest and most secure version.
+
+⚠️ The interface generators are **optional** but highly recommended. Without them, some older games may not work with Goldberg.
 
 ⚠️ If you're missing the required DLL, the installation will fail with an error message.

@@ -734,6 +734,39 @@ async function installGoldberg(gameFolder, appId, goldbergOptions) {
   fs.copyFileSync(sourcePath, steamApiInfo.path);
   console.log(`Installed Goldberg ${sourceDll}`);
 
+  // Generate steam_interfaces.txt using the appropriate tool
+  try {
+    const interfacesExe = is64bit ? 'generate_interfaces_x64.exe' : 'generate_interfaces_x32.exe';
+    const interfacesToolPath = path.join(goldbergDllFolder, interfacesExe);
+
+    if (fs.existsSync(interfacesToolPath)) {
+      console.log(`Running ${interfacesExe} to generate steam_interfaces.txt...`);
+
+      // Run generate_interfaces in the steam_api directory
+      const { stdout, stderr } = await execPromise(`"${interfacesToolPath}"`, {
+        cwd: steamApiDir,
+        timeout: 10000 // 10 second timeout
+      });
+
+      if (stdout) console.log('generate_interfaces output:', stdout);
+      if (stderr) console.warn('generate_interfaces stderr:', stderr);
+
+      // Check if steam_interfaces.txt was created
+      const interfacesFile = path.join(steamApiDir, 'steam_interfaces.txt');
+      if (fs.existsSync(interfacesFile)) {
+        console.log('✓ steam_interfaces.txt generated successfully');
+      } else {
+        console.warn('steam_interfaces.txt was not created, but continuing anyway');
+      }
+    } else {
+      console.warn(`${interfacesExe} not found, skipping interface generation`);
+      console.warn('This may cause issues with older games (pre-May 2016 Steam API)');
+    }
+  } catch (interfaceError) {
+    console.warn('Failed to generate steam_interfaces.txt:', interfaceError.message);
+    console.warn('Goldberg may still work without it for newer games');
+  }
+
   console.log('Goldberg installation complete!');
 
   return {
