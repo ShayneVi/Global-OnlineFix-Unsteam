@@ -253,28 +253,53 @@ async function downloadGlobalFix(destPath) {
     const url = 'https://github.com/ShayneVi/Global-OnlineFix-Unsteam/raw/refs/heads/main/GlobalFix.zip';
     const file = fs.createWriteStream(destPath);
 
+    // Timeout after 30 seconds
+    const timeout = setTimeout(() => {
+      file.close();
+      try {
+        fs.unlinkSync(destPath);
+      } catch (e) {
+        // Ignore
+      }
+      reject(new Error('Download timed out after 30 seconds. Please check your internet connection.'));
+    }, 30000);
+
     https.get(url, (response) => {
       if (response.statusCode === 302 || response.statusCode === 301) {
         // Follow redirect
         https.get(response.headers.location, (redirectResponse) => {
           redirectResponse.pipe(file);
           file.on('finish', () => {
+            clearTimeout(timeout);
             file.close();
             resolve();
           });
         }).on('error', (err) => {
-          fs.unlinkSync(destPath);
+          clearTimeout(timeout);
+          file.close();
+          try {
+            fs.unlinkSync(destPath);
+          } catch (e) {
+            // Ignore
+          }
           reject(err);
         });
       } else {
         response.pipe(file);
         file.on('finish', () => {
+          clearTimeout(timeout);
           file.close();
           resolve();
         });
       }
     }).on('error', (err) => {
-      fs.unlinkSync(destPath);
+      clearTimeout(timeout);
+      file.close();
+      try {
+        fs.unlinkSync(destPath);
+      } catch (e) {
+        // Ignore
+      }
       reject(err);
     });
   });
@@ -296,10 +321,17 @@ async function extractZip(zipPath, destPath) {
   });
 
   return new Promise((resolve, reject) => {
+    // Timeout after 60 seconds
+    const timeout = setTimeout(() => {
+      reject(new Error('Extraction timed out after 60 seconds'));
+    }, 60000);
+
     seven.on('end', () => {
+      clearTimeout(timeout);
       resolve();
     });
     seven.on('error', (err) => {
+      clearTimeout(timeout);
       reject(err);
     });
   });
@@ -498,8 +530,20 @@ async function closeSteamAndWait(steamPath) {
 
   try {
     // Check if Steam is running
-    const tasklistOutput = execSync('tasklist /FI "IMAGENAME eq steam.exe" /NH', { encoding: 'utf-8' });
+    logToRenderer('Checking if Steam is running...');
+    let tasklistOutput;
+    try {
+      tasklistOutput = execSync('tasklist /FI "IMAGENAME eq steam.exe" /NH', {
+        encoding: 'utf-8',
+        timeout: 5000 // 5 second timeout
+      });
+    } catch (e) {
+      logErrorToRenderer('Failed to check if Steam is running:', e.message);
+      return false;
+    }
+
     if (!tasklistOutput.toLowerCase().includes('steam.exe')) {
+      logToRenderer('Steam is not running, nothing to close');
       return false; // Steam is not running
     }
 
@@ -508,52 +552,89 @@ async function closeSteamAndWait(steamPath) {
 
     // Close Steam gracefully first
     try {
-      execSync('taskkill /IM steam.exe', { encoding: 'utf-8' });
+      execSync('taskkill /IM steam.exe', {
+        encoding: 'utf-8',
+        timeout: 5000
+      });
       logToRenderer('   Sent graceful shutdown signal to Steam...');
     } catch (e) {
       // Ignore errors - Steam might already be closed
+      logToRenderer('   Note: taskkill returned:', e.message);
     }
 
     // Wait for Steam to fully close (check every 500ms, max 10 seconds)
     let attempts = 0;
     const maxAttempts = 20;
+    const startTime = Date.now();
+    const maxWaitTime = 10000; // 10 seconds maximum
 
-    while (attempts < maxAttempts) {
+    while (attempts < maxAttempts && (Date.now() - startTime) < maxWaitTime) {
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      const checkOutput = execSync('tasklist /FI "IMAGENAME eq steam.exe" /NH', { encoding: 'utf-8' });
-      if (!checkOutput.toLowerCase().includes('steam.exe')) {
-        logToRenderer('✓ Steam process has exited');
+      try {
+        const checkOutput = execSync('tasklist /FI "IMAGENAME eq steam.exe" /NH', {
+          encoding: 'utf-8',
+          timeout: 3000
+        });
+        if (!checkOutput.toLowerCase().includes('steam.exe')) {
+          logToRenderer('✓ Steam process has exited');
+          break;
+        }
+      } catch (e) {
+        // If tasklist fails, assume Steam is closed
+        logToRenderer('✓ Steam appears to be closed');
         break;
       }
       attempts++;
     }
 
     // If graceful shutdown didn't work, force kill Steam
-    if (attempts >= maxAttempts) {
+    if (attempts >= maxAttempts || (Date.now() - startTime) >= maxWaitTime) {
       logToRenderer('⚠️ Steam did not close gracefully, forcing shutdown...');
       try {
-        execSync('taskkill /F /IM steam.exe', { encoding: 'utf-8' });
+        execSync('taskkill /F /IM steam.exe', {
+          encoding: 'utf-8',
+          timeout: 5000
+        });
         logToRenderer('✓ Forced Steam to close');
 
         // Wait a bit more for force kill to complete
         await new Promise(resolve => setTimeout(resolve, 2000));
 
         // Verify Steam is actually closed
-        const verifyOutput = execSync('tasklist /FI "IMAGENAME eq steam.exe" /NH', { encoding: 'utf-8' });
-        if (verifyOutput.toLowerCase().includes('steam.exe')) {
-          logErrorToRenderer('✗ ERROR: Steam is still running even after force kill!');
-          throw new Error('Could not close Steam. Please close Steam manually and try again.');
+        try {
+          const verifyOutput = execSync('tasklist /FI "IMAGENAME eq steam.exe" /NH', {
+            encoding: 'utf-8',
+            timeout: 3000
+          });
+          if (verifyOutput.toLowerCase().includes('steam.exe')) {
+            logErrorToRenderer('✗ ERROR: Steam is still running even after force kill!');
+            throw new Error('Could not close Steam. Please close Steam manually and try again.');
+          }
+        } catch (e) {
+          if (e.message.includes('Could not close Steam')) {
+            throw e;
+          }
+          // tasklist failed, assume Steam is closed
+          logToRenderer('✓ Steam appears to be closed (verification check failed but proceeding)');
         }
       } catch (killError) {
         if (killError.message.includes('Could not close Steam')) {
           throw killError;
         }
         // If taskkill failed, Steam might already be closed - verify
-        const finalCheck = execSync('tasklist /FI "IMAGENAME eq steam.exe" /NH', { encoding: 'utf-8' });
-        if (finalCheck.toLowerCase().includes('steam.exe')) {
-          logErrorToRenderer('✗ ERROR: Failed to close Steam');
-          throw new Error('Could not close Steam. Please close Steam manually and try again.');
+        try {
+          const finalCheck = execSync('tasklist /FI "IMAGENAME eq steam.exe" /NH', {
+            encoding: 'utf-8',
+            timeout: 3000
+          });
+          if (finalCheck.toLowerCase().includes('steam.exe')) {
+            logErrorToRenderer('✗ ERROR: Failed to close Steam');
+            throw new Error('Could not close Steam. Please close Steam manually and try again.');
+          }
+        } catch (e) {
+          // Assume Steam is closed
+          logToRenderer('✓ Proceeding (could not verify Steam status)');
         }
       }
     }
@@ -577,11 +658,11 @@ async function closeSteamAndWait(steamPath) {
 
       // Wait for all config files to stop being modified (stable for 2 seconds)
       const stabilityWaitMs = 2000;
-      const maxConfigWaitMs = 10000;
-      const startTime = Date.now();
+      const maxConfigWaitMs = 10000; // Maximum 10 seconds
+      const configStartTime = Date.now();
 
       let allStable = false;
-      while (!allStable && (Date.now() - startTime) < maxConfigWaitMs) {
+      while (!allStable && (Date.now() - configStartTime) < maxConfigWaitMs) {
         // Get current modification times
         const mtimes = configFiles.map(f => {
           try {
@@ -593,6 +674,12 @@ async function closeSteamAndWait(steamPath) {
 
         // Wait
         await new Promise(resolve => setTimeout(resolve, stabilityWaitMs));
+
+        // Check if we've exceeded max wait time
+        if ((Date.now() - configStartTime) >= maxConfigWaitMs) {
+          logToRenderer('⚠️ Config file stability check timed out, proceeding anyway...');
+          break;
+        }
 
         // Check if any files were modified during the wait
         allStable = true;
@@ -626,7 +713,7 @@ async function closeSteamAndWait(steamPath) {
 
   } catch (e) {
     logErrorToRenderer('Error while closing Steam:', e.message);
-    return false;
+    throw e; // Re-throw to fail the operation
   }
 }
 
