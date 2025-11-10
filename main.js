@@ -204,6 +204,10 @@ function findGameByAppId(libraries, appId) {
   return null;
 }
 
+// ============================================================
+// GAME EXE AUTO-DETECTION
+// Search for "GAME EXE AUTO-DETECTION" to find this section
+// ============================================================
 // Find the main executable in game folder - returns full path to exe
 function findGameExe(gameFolder) {
   try {
@@ -239,6 +243,9 @@ function findGameExe(gameFolder) {
     return null;
   }
 }
+// ============================================================
+// END GAME EXE AUTO-DETECTION
+// ============================================================
 
 // Download GlobalFix.zip from GitHub
 async function downloadGlobalFix(destPath) {
