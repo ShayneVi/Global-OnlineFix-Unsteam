@@ -50,6 +50,44 @@ GlobalFix **cannot** enable online play for games using:
 
 ---
 
+## Tested Games
+
+### ✅ Confirmed Working
+
+The following games have been successfully tested with GlobalFix and confirmed to have working online multiplayer:
+
+- **Granny Escape Together**
+- **Paint the Town Red**
+- **Mimesis**
+- **Hearts of Iron IV**
+- **South Park: Snow Day**
+- **Escape Simulator**
+- **Stellaris**
+- **Swapmeat**
+- **Europa Universalis IV**
+- **Veins**
+- **Tavern Keeper**
+
+### ❌ Not Compatible
+
+These games have been tested and are **not compatible** with GlobalFix due to their network architecture:
+
+- **Sons of the Forest** - Uses dedicated servers
+- **PEAK** - Photon networking
+- **FBC: Fireworks** - Authentication-based online only
+- **For the King 2** - Requires authentication
+- **American Truck Simulator** - Compatibility issues (game won't launch properly)
+- **Grounded** - Microsoft account authentication required
+- **Dying Light** - Compatibility issues (game won't launch properly)
+- **Warhammer: Darktide** - Dedicated servers
+- **Warhammer: Rogue Trader** - Photon networking
+- **Abiotic Factor** - LAN works, but not standard online multiplayer
+- **Phasmophobia** - Photon networking
+
+**Note**: This list is not exhaustive. Many other games will work or not work based on similar technical factors.
+
+---
+
 ## Features
 
 - 🔎 **Steam Game Database Search** - Instant autocomplete search across 150,000+ Steam games
@@ -184,4 +222,3 @@ MIT License - See repository for details
 
 **Version**: 1.0.0
 **Last Updated**: November 2024
-
