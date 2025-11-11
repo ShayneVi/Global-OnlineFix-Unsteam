@@ -1283,6 +1283,105 @@ function detectExeArchitecture(exePath) {
   }
 }
 
+// Function to detect if a game is Unreal Engine 5
+function detectUnrealEngine5(gameFolder) {
+  try {
+    // UE5 games typically have this structure:
+    // GameFolder/GameName/Binaries/Win64/*-Win64-Shipping.exe
+
+    // Look for Binaries/Win64 directory
+    const binariesPath = path.join(gameFolder, 'Binaries', 'Win64');
+    if (fs.existsSync(binariesPath)) {
+      // Check if there's a *-Win64-Shipping.exe file
+      const files = fs.readdirSync(binariesPath);
+      const shippingExe = files.find(file =>
+        file.endsWith('-Win64-Shipping.exe') ||
+        file.endsWith('-Win32-Shipping.exe')
+      );
+
+      if (shippingExe) {
+        console.log(`Detected UE5 game - found ${shippingExe}`);
+        return true;
+      }
+    }
+
+    // Alternative check: Look for subfolder with Binaries/Win64
+    // Structure: GameFolder/SubFolder/Binaries/Win64/*-Shipping.exe
+    const folders = fs.readdirSync(gameFolder, { withFileTypes: true });
+    for (const folder of folders) {
+      if (folder.isDirectory()) {
+        const subBinariesPath = path.join(gameFolder, folder.name, 'Binaries', 'Win64');
+        if (fs.existsSync(subBinariesPath)) {
+          const files = fs.readdirSync(subBinariesPath);
+          const shippingExe = files.find(file =>
+            file.endsWith('-Win64-Shipping.exe') ||
+            file.endsWith('-Win32-Shipping.exe')
+          );
+
+          if (shippingExe) {
+            console.log(`Detected UE5 game in subfolder - found ${shippingExe}`);
+            return true;
+          }
+        }
+      }
+    }
+
+    console.log('Not a UE5 game');
+    return false;
+  } catch (error) {
+    console.error('Error detecting UE5:', error);
+    return false;
+  }
+}
+
+// Function to find UE5 Shipping executable
+function findUE5ShippingExe(gameFolder) {
+  try {
+    // First try: GameFolder/Binaries/Win64
+    const binariesPath = path.join(gameFolder, 'Binaries', 'Win64');
+    if (fs.existsSync(binariesPath)) {
+      const files = fs.readdirSync(binariesPath);
+      const shippingExe = files.find(file =>
+        file.endsWith('-Win64-Shipping.exe') ||
+        file.endsWith('-Win32-Shipping.exe')
+      );
+
+      if (shippingExe) {
+        const fullPath = path.join(binariesPath, shippingExe);
+        console.log(`Found UE5 Shipping exe: ${fullPath}`);
+        return fullPath;
+      }
+    }
+
+    // Second try: GameFolder/SubFolder/Binaries/Win64
+    const folders = fs.readdirSync(gameFolder, { withFileTypes: true });
+    for (const folder of folders) {
+      if (folder.isDirectory()) {
+        const subBinariesPath = path.join(gameFolder, folder.name, 'Binaries', 'Win64');
+        if (fs.existsSync(subBinariesPath)) {
+          const files = fs.readdirSync(subBinariesPath);
+          const shippingExe = files.find(file =>
+            file.endsWith('-Win64-Shipping.exe') ||
+            file.endsWith('-Win32-Shipping.exe')
+          );
+
+          if (shippingExe) {
+            const fullPath = path.join(subBinariesPath, shippingExe);
+            console.log(`Found UE5 Shipping exe in subfolder: ${fullPath}`);
+            return fullPath;
+          }
+        }
+      }
+    }
+
+    console.log('Could not find UE5 Shipping exe');
+    return null;
+  } catch (error) {
+    console.error('Error finding UE5 Shipping exe:', error);
+    return null;
+  }
+}
+
 // Main IPC handler
 ipcMain.handle('install-globalfix', async (event, options) => {
   try {
@@ -1334,22 +1433,42 @@ ipcMain.handle('install-globalfix', async (event, options) => {
     if (steamlessEnabled) {
       try {
         console.log('Starting Steamless unpacking...');
-        const unpackedPath = await steamlessUnpack(gameExeFullPath);
+
+        // Detect if UE5 and get appropriate executable
+        let exeToUnpack = gameExeFullPath;
+        let exeNameToUnpack = gameExeName;
+        const isUE5 = detectUnrealEngine5(gameFolder);
+
+        if (isUE5) {
+          console.log('UE5 game detected - looking for Shipping executable...');
+          const ue5ShippingExe = findUE5ShippingExe(gameFolder);
+          if (ue5ShippingExe) {
+            exeToUnpack = ue5ShippingExe;
+            exeNameToUnpack = path.basename(ue5ShippingExe);
+            console.log(`✓ UE5 Shipping exe found: ${exeToUnpack}`);
+          } else {
+            console.warn('⚠ UE5 detected but could not find Shipping exe, using default exe');
+          }
+        } else {
+          console.log('Not a UE5 game - using standard exe');
+        }
+
+        const unpackedPath = await steamlessUnpack(exeToUnpack);
 
         // Backup original exe
-        const backupPath = gameExeFullPath + '.bak';
+        const backupPath = exeToUnpack + '.bak';
         if (!fs.existsSync(backupPath)) {
-          fs.renameSync(gameExeFullPath, backupPath);
+          fs.renameSync(exeToUnpack, backupPath);
           console.log(`Backed up original exe to: ${backupPath}`);
         } else {
           // Backup already exists, just delete the original
-          fs.unlinkSync(gameExeFullPath);
+          fs.unlinkSync(exeToUnpack);
           console.log('Backup already exists, deleted original exe');
         }
 
         // Rename unpacked exe to original name
-        fs.renameSync(unpackedPath, gameExeFullPath);
-        console.log(`Renamed unpacked exe to: ${gameExeName}`);
+        fs.renameSync(unpackedPath, exeToUnpack);
+        console.log(`Renamed unpacked exe to: ${exeNameToUnpack}`);
 
         steamlessApplied = true;
       } catch (steamlessError) {
