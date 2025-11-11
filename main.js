@@ -1180,26 +1180,71 @@ ipcMain.handle('unfix-game', async (event, options) => {
     const fixState = loadFixState(gameFolder);
     const removedItems = [];
 
+    // Track which exe was restored (for success message)
+    let restoredExePath = null;
+    let restoredExeName = null;
+
     // Step 5: Restore Steamless backup (if requested and it was used)
     if (removeSteamless && fixState && fixState.steamlessEnabled) {
       try {
-        const gameExeFullPath = findGameExe(gameFolder);
-        if (gameExeFullPath) {
-          const backupPath = gameExeFullPath + '.bak';
+        console.log('\n========================================');
+        console.log('STEAMLESS UNFIX - START');
+        console.log('========================================');
+        console.log('Game folder:', gameFolder);
+
+        // Detect if this is a UE5 game
+        const isUE5 = detectUnrealEngine5(gameFolder);
+        console.log('UE5 detection result:', isUE5);
+
+        let exeToRestore = findGameExe(gameFolder); // Default to main game exe
+
+        if (isUE5) {
+          console.log('✓ UE5 game detected - looking for Shipping.exe backup');
+          const ue5ShippingExe = findUE5ShippingExe(gameFolder);
+          if (ue5ShippingExe) {
+            exeToRestore = ue5ShippingExe;
+            console.log('✓ Will restore Shipping.exe backup:', exeToRestore);
+          } else {
+            console.warn('⚠ UE5 detected but could not find Shipping.exe, using main exe');
+          }
+        } else {
+          console.log('✓ Not a UE5 game - using standard exe');
+        }
+
+        if (exeToRestore) {
+          const backupPath = exeToRestore + '.bak';
+          console.log('Looking for backup at:', backupPath);
+          console.log('Backup exists?:', fs.existsSync(backupPath));
+
           if (fs.existsSync(backupPath)) {
             // Delete current exe (unpacked version)
-            if (fs.existsSync(gameExeFullPath)) {
-              fs.unlinkSync(gameExeFullPath);
-              console.log('Deleted unpacked exe');
+            if (fs.existsSync(exeToRestore)) {
+              fs.unlinkSync(exeToRestore);
+              console.log('✓ Deleted unpacked exe:', exeToRestore);
             }
             // Restore backup
-            fs.renameSync(backupPath, gameExeFullPath);
-            console.log('Restored original exe from backup');
-            removedItems.push('Restored original game executable');
+            fs.renameSync(backupPath, exeToRestore);
+            console.log('✓ Restored original exe from backup');
+
+            // Track for success message
+            restoredExePath = path.dirname(exeToRestore);
+            restoredExeName = path.basename(exeToRestore);
+
+            removedItems.push(`Restored original game executable (${restoredExeName})`);
+            console.log('\n✓✓✓ STEAMLESS UNFIX COMPLETED SUCCESSFULLY ✓✓✓');
+          } else {
+            console.warn('⚠ Backup file not found, skipping restore');
           }
         }
+
+        console.log('========================================\n');
       } catch (error) {
-        console.error('Error restoring Steamless backup:', error);
+        console.error('\n========================================');
+        console.error('❌ STEAMLESS UNFIX FAILED');
+        console.error('========================================');
+        console.error('Error:', error.message);
+        console.error('Stack:', error.stack);
+        console.error('========================================\n');
       }
     }
 
@@ -1224,7 +1269,8 @@ ipcMain.handle('unfix-game', async (event, options) => {
 
     return {
       success: true,
-      gameFolder: gameFolder,
+      gameFolder: restoredExePath || gameFolder,
+      gameExe: restoredExeName || null,
       removedItems: removedItems
     };
   } catch (error) {

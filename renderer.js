@@ -839,10 +839,17 @@ function showUnfixSuccess(result, unsteamWasRemoved) {
     `;
   }
 
+  const gameExeInfo = result.gameExe ? `
+    <div class="result-details-item">
+      <strong>Restored Executable:</strong> ${escapeHtml(result.gameExe)}
+    </div>
+  ` : '';
+
   resultDetails.innerHTML = `
     <div class="result-details-item">
       <strong>Game Folder:</strong> ${escapeHtml(result.gameFolder)}
     </div>
+    ${gameExeInfo}
     <div class="result-details-item" style="margin-top: 15px;">
       <strong>Removed Items:</strong>
       ${removedItemsHtml}
