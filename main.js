@@ -1286,50 +1286,65 @@ function detectExeArchitecture(exePath) {
 // Function to detect if a game is Unreal Engine 5
 function detectUnrealEngine5(gameFolder) {
   try {
+    console.log('[UE5 Detection] Starting detection for:', gameFolder);
     // UE5 games typically have this structure:
     // GameFolder/GameName/Binaries/Win64/*-Win64-Shipping.exe
 
     // Look for Binaries/Win64 directory
     const binariesPath = path.join(gameFolder, 'Binaries', 'Win64');
+    console.log('[UE5 Detection] Checking path:', binariesPath);
+    console.log('[UE5 Detection] Path exists?:', fs.existsSync(binariesPath));
+
     if (fs.existsSync(binariesPath)) {
       // Check if there's a *-Win64-Shipping.exe file
       const files = fs.readdirSync(binariesPath);
+      console.log('[UE5 Detection] Files in Binaries/Win64:', files);
+
       const shippingExe = files.find(file =>
         file.endsWith('-Win64-Shipping.exe') ||
         file.endsWith('-Win32-Shipping.exe')
       );
 
       if (shippingExe) {
-        console.log(`Detected UE5 game - found ${shippingExe}`);
+        console.log(`[UE5 Detection] ✓ Detected UE5 game - found ${shippingExe}`);
         return true;
       }
     }
 
     // Alternative check: Look for subfolder with Binaries/Win64
     // Structure: GameFolder/SubFolder/Binaries/Win64/*-Shipping.exe
+    console.log('[UE5 Detection] Checking subfolders...');
     const folders = fs.readdirSync(gameFolder, { withFileTypes: true });
+    console.log('[UE5 Detection] Found', folders.length, 'items in game folder');
+
     for (const folder of folders) {
       if (folder.isDirectory()) {
+        console.log('[UE5 Detection] Checking subfolder:', folder.name);
         const subBinariesPath = path.join(gameFolder, folder.name, 'Binaries', 'Win64');
+        console.log('[UE5 Detection] Checking path:', subBinariesPath);
+        console.log('[UE5 Detection] Path exists?:', fs.existsSync(subBinariesPath));
+
         if (fs.existsSync(subBinariesPath)) {
           const files = fs.readdirSync(subBinariesPath);
+          console.log('[UE5 Detection] Files in', folder.name + '/Binaries/Win64:', files);
+
           const shippingExe = files.find(file =>
             file.endsWith('-Win64-Shipping.exe') ||
             file.endsWith('-Win32-Shipping.exe')
           );
 
           if (shippingExe) {
-            console.log(`Detected UE5 game in subfolder - found ${shippingExe}`);
+            console.log(`[UE5 Detection] ✓ Detected UE5 game in subfolder ${folder.name} - found ${shippingExe}`);
             return true;
           }
         }
       }
     }
 
-    console.log('Not a UE5 game');
+    console.log('[UE5 Detection] ❌ Not a UE5 game');
     return false;
   } catch (error) {
-    console.error('Error detecting UE5:', error);
+    console.error('[UE5 Detection] ❌ Error detecting UE5:', error);
     return false;
   }
 }
@@ -1337,10 +1352,16 @@ function detectUnrealEngine5(gameFolder) {
 // Function to find UE5 Shipping executable
 function findUE5ShippingExe(gameFolder) {
   try {
+    console.log('[UE5 ShippingExe] Starting search for Shipping.exe in:', gameFolder);
+
     // First try: GameFolder/Binaries/Win64
     const binariesPath = path.join(gameFolder, 'Binaries', 'Win64');
+    console.log('[UE5 ShippingExe] Checking:', binariesPath);
+
     if (fs.existsSync(binariesPath)) {
       const files = fs.readdirSync(binariesPath);
+      console.log('[UE5 ShippingExe] Files found:', files);
+
       const shippingExe = files.find(file =>
         file.endsWith('-Win64-Shipping.exe') ||
         file.endsWith('-Win32-Shipping.exe')
@@ -1348,18 +1369,25 @@ function findUE5ShippingExe(gameFolder) {
 
       if (shippingExe) {
         const fullPath = path.join(binariesPath, shippingExe);
-        console.log(`Found UE5 Shipping exe: ${fullPath}`);
+        console.log(`[UE5 ShippingExe] ✓ Found UE5 Shipping exe: ${fullPath}`);
         return fullPath;
       }
     }
 
     // Second try: GameFolder/SubFolder/Binaries/Win64
+    console.log('[UE5 ShippingExe] Not found in root, checking subfolders...');
     const folders = fs.readdirSync(gameFolder, { withFileTypes: true });
+
     for (const folder of folders) {
       if (folder.isDirectory()) {
+        console.log('[UE5 ShippingExe] Checking subfolder:', folder.name);
         const subBinariesPath = path.join(gameFolder, folder.name, 'Binaries', 'Win64');
+        console.log('[UE5 ShippingExe] Path:', subBinariesPath);
+
         if (fs.existsSync(subBinariesPath)) {
           const files = fs.readdirSync(subBinariesPath);
+          console.log('[UE5 ShippingExe] Files found:', files);
+
           const shippingExe = files.find(file =>
             file.endsWith('-Win64-Shipping.exe') ||
             file.endsWith('-Win32-Shipping.exe')
@@ -1367,17 +1395,17 @@ function findUE5ShippingExe(gameFolder) {
 
           if (shippingExe) {
             const fullPath = path.join(subBinariesPath, shippingExe);
-            console.log(`Found UE5 Shipping exe in subfolder: ${fullPath}`);
+            console.log(`[UE5 ShippingExe] ✓ Found UE5 Shipping exe in subfolder: ${fullPath}`);
             return fullPath;
           }
         }
       }
     }
 
-    console.log('Could not find UE5 Shipping exe');
+    console.log('[UE5 ShippingExe] ❌ Could not find UE5 Shipping exe');
     return null;
   } catch (error) {
-    console.error('Error finding UE5 Shipping exe:', error);
+    console.error('[UE5 ShippingExe] ❌ Error finding UE5 Shipping exe:', error);
     return null;
   }
 }
@@ -1432,50 +1460,86 @@ ipcMain.handle('install-globalfix', async (event, options) => {
     let steamlessApplied = false;
     if (steamlessEnabled) {
       try {
-        console.log('Starting Steamless unpacking...');
+        console.log('\n========================================');
+        console.log('STEAMLESS UNPACKING - START');
+        console.log('========================================');
+        console.log('Game folder:', gameFolder);
+        console.log('Default game exe:', gameExeFullPath);
+        console.log('steamlessEnabled:', steamlessEnabled);
 
         // Detect if UE5 and get appropriate executable
         let exeToUnpack = gameExeFullPath;
         let exeNameToUnpack = gameExeName;
+
+        console.log('\n--- Checking if UE5 game ---');
         const isUE5 = detectUnrealEngine5(gameFolder);
+        console.log('UE5 detection result:', isUE5);
 
         if (isUE5) {
-          console.log('UE5 game detected - looking for Shipping executable...');
+          console.log('\n✓ UE5 game detected - looking for Shipping executable...');
           const ue5ShippingExe = findUE5ShippingExe(gameFolder);
+          console.log('Shipping exe search result:', ue5ShippingExe);
+
           if (ue5ShippingExe) {
             exeToUnpack = ue5ShippingExe;
             exeNameToUnpack = path.basename(ue5ShippingExe);
-            console.log(`✓ UE5 Shipping exe found: ${exeToUnpack}`);
+            console.log(`✓ Will unpack UE5 Shipping exe: ${exeToUnpack}`);
           } else {
-            console.warn('⚠ UE5 detected but could not find Shipping exe, using default exe');
+            console.warn('⚠ UE5 detected but could not find Shipping exe');
+            console.warn('⚠ Falling back to default exe:', exeToUnpack);
           }
         } else {
-          console.log('Not a UE5 game - using standard exe');
+          console.log('✓ Not a UE5 game - using standard exe:', exeToUnpack);
         }
 
+        console.log('\n--- Running Steamless ---');
+        console.log('Target exe for unpacking:', exeToUnpack);
+        console.log('Checking if file exists:', fs.existsSync(exeToUnpack));
+
         const unpackedPath = await steamlessUnpack(exeToUnpack);
+        console.log('✓ Steamless unpacking completed');
+        console.log('Unpacked file path:', unpackedPath);
+        console.log('Checking if unpacked file exists:', fs.existsSync(unpackedPath));
 
         // Backup original exe
+        console.log('\n--- Creating backup ---');
         const backupPath = exeToUnpack + '.bak';
+        console.log('Backup path:', backupPath);
+        console.log('Backup already exists?:', fs.existsSync(backupPath));
+
         if (!fs.existsSync(backupPath)) {
           fs.renameSync(exeToUnpack, backupPath);
-          console.log(`Backed up original exe to: ${backupPath}`);
+          console.log(`✓ Backed up original exe to: ${backupPath}`);
         } else {
           // Backup already exists, just delete the original
           fs.unlinkSync(exeToUnpack);
-          console.log('Backup already exists, deleted original exe');
+          console.log('✓ Backup already exists, deleted original exe');
         }
 
         // Rename unpacked exe to original name
+        console.log('\n--- Finalizing ---');
+        console.log('Renaming unpacked file to:', exeToUnpack);
         fs.renameSync(unpackedPath, exeToUnpack);
-        console.log(`Renamed unpacked exe to: ${exeNameToUnpack}`);
+        console.log(`✓ Renamed unpacked exe to: ${exeNameToUnpack}`);
+        console.log('Final exe exists?:', fs.existsSync(exeToUnpack));
+        console.log('Backup exists?:', fs.existsSync(backupPath));
 
         steamlessApplied = true;
+        console.log('\n✓✓✓ STEAMLESS UNPACKING COMPLETED SUCCESSFULLY ✓✓✓');
+        console.log('========================================\n');
       } catch (steamlessError) {
-        console.error('Steamless error:', steamlessError);
+        console.error('\n========================================');
+        console.error('❌ STEAMLESS UNPACKING FAILED');
+        console.error('========================================');
+        console.error('Error name:', steamlessError.name);
+        console.error('Error message:', steamlessError.message);
+        console.error('Error stack:', steamlessError.stack);
+        console.error('========================================\n');
         // Don't fail - Steamless is optional, continue with other tools
-        console.log('Continuing without Steamless...');
+        console.log('⚠ Continuing without Steamless...\n');
       }
+    } else {
+      console.log('Steamless is disabled, skipping...');
     }
 
     // ============================================================
